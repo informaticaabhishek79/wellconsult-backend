@@ -191,3 +191,18 @@
 2026-08-22 18:15:01 [[32minfo[39m]: HTTP {"method":"POST","path":"/refresh","status":200,"duration":"404ms","ip":"::1"}
 2026-08-22 18:15:02 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"652ms","ip":"::1"}
 2026-08-22 19:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 19:06:25 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 19:06:25 [[32minfo[39m]: Redis connected 
+2026-08-22 19:06:25 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 19:06:25 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 19:06:35 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1084ms","ip":"::1"}
+2026-08-22 19:06:41 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"884ms","ip":"::1"}
+2026-08-22 19:06:43 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"921ms","ip":"::1"}
+2026-08-22 19:07:08 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"928ms","ip":"::1"}
+2026-08-22 19:09:42 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1204}
+2026-08-22 19:09:42 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1889ms","ip":"::1"}
+2026-08-22 19:13:42 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":849}
+2026-08-22 19:13:42 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1567ms","ip":"::1"}
+2026-08-22 19:14:07 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"279ms","ip":"::1"}
+2026-08-22 19:15:10 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":1197}
+2026-08-22 19:15:10 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"1401ms","ip":"::1"}
