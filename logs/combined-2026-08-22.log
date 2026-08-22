@@ -1,0 +1,193 @@
+2026-08-22 10:29:58 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 10:30:09 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 10:34:45 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:34:45 [[32minfo[39m]: Redis connected 
+2026-08-22 10:34:46 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:34:46 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:35:05 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:35:05 [[32minfo[39m]: Redis connected 
+2026-08-22 10:35:05 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:35:05 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:35:53 [[32minfo[39m]: HTTP {"method":"GET","path":"/health","status":200,"duration":"9ms","ip":"::1"}
+2026-08-22 10:35:53 [[32minfo[39m]: HTTP {"method":"GET","path":"/favicon.ico","status":404,"duration":"2ms","ip":"::1"}
+2026-08-22 10:37:10 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1012}
+2026-08-22 10:37:11 [[32minfo[39m]: User registered {"userId":"17cc76d3-c857-4ebb-bb96-5643347805e8","role":"doctor"}
+2026-08-22 10:37:11 [[32minfo[39m]: HTTP {"method":"POST","path":"/register","status":201,"duration":"1935ms","ip":"::1"}
+2026-08-22 10:39:29 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":881}
+2026-08-22 10:39:29 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1404ms","ip":"::1"}
+2026-08-22 10:40:21 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":846}
+2026-08-22 10:40:22 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1285ms","ip":"::1"}
+2026-08-22 10:41:17 [[33mwarn[39m]: Slow query detected {"sql":"SELECT\n         COUNT(*) FILTER (WHERE status='completed') AS total_consultations,\n         COUNT(*) FILTER (WHERE status='booked' AND appt_date = CURRENT_DATE) AS today_appointments,\n         COUNT(*) FILTER (WHERE status='booked' AND appt_date > CURRENT_DATE) AS upcoming_appointments\n       FROM appointments WHERE doctor_id = $1","duration":636}
+2026-08-22 10:41:17 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/dashboard","status":200,"duration":"786ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 10:42:53 [[33mwarn[39m]: Slow query detected {"sql":"SELECT\n         COUNT(*) FILTER (WHERE status='completed') AS total_consultations,\n         COUNT(*) FILTER (WHERE status='booked' AND appt_date = CURRENT_DATE) AS today_appointments,\n         COUNT(*) FILTER (WHERE status='booked' AND appt_date > CURRENT_DATE) AS upcoming_appointments\n       FROM appointments WHERE doctor_id = $1","duration":705}
+2026-08-22 10:42:53 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/dashboard","status":200,"duration":"819ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 10:43:05 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"262ms","ip":"::1"}
+2026-08-22 10:44:37 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":923}
+2026-08-22 10:44:37 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"1133ms","ip":"::1"}
+2026-08-22 10:45:09 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":587}
+2026-08-22 10:45:09 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"671ms","ip":"::1"}
+2026-08-22 10:46:43 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:46:43 [[32minfo[39m]: Redis connected 
+2026-08-22 10:46:43 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:46:43 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:47:12 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"208ms","ip":"::1"}
+2026-08-22 10:47:34 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"199ms","ip":"::1"}
+2026-08-22 10:51:37 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:51:37 [[32minfo[39m]: Redis connected 
+2026-08-22 10:51:37 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:51:37 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:52:17 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":1191}
+2026-08-22 10:52:17 [[31merror[39m]: Unhandled error FILTER specified, but array_to_json is not an aggregate function {"stack":"error: FILTER specified, but array_to_json is not an aggregate function\n    at C:\\wellconsult\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at query (C:\\wellconsult\\backend\\src\\config\\database.ts:26:20)\n    at Object.search (C:\\wellconsult\\backend\\src\\modules\\doctors\\doctors.service.ts:44:18)\n    at C:\\wellconsult\\backend\\src\\modules\\doctors\\doctors.routes.ts:11:42"}
+2026-08-22 10:52:17 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors","status":500,"duration":"1394ms","ip":"::1"}
+2026-08-22 10:52:34 [[32minfo[39m]: SIGINT received — shutting down gracefully 
+2026-08-22 10:52:39 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:52:39 [[32minfo[39m]: Redis connected 
+2026-08-22 10:52:39 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:52:39 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:52:49 [[31merror[39m]: Unhandled error FILTER specified, but array_to_json is not an aggregate function {"stack":"error: FILTER specified, but array_to_json is not an aggregate function\n    at C:\\wellconsult\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at query (C:\\wellconsult\\backend\\src\\config\\database.ts:26:20)\n    at Object.search (C:\\wellconsult\\backend\\src\\modules\\doctors\\doctors.service.ts:44:18)\n    at C:\\wellconsult\\backend\\src\\modules\\doctors\\doctors.routes.ts:11:42"}
+2026-08-22 10:52:49 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors","status":500,"duration":"299ms","ip":"::1"}
+2026-08-22 10:54:50 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 10:54:50 [[32minfo[39m]: Redis connected 
+2026-08-22 10:54:50 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 10:54:50 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 10:55:14 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"197ms","ip":"::1"}
+2026-08-22 11:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 11:43:17 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 11:43:18 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 11:49:46 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 11:49:46 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 11:50:16 [[31merror[39m]: Bootstrap failed {"error":"connection is insecure (try using `sslmode=require`)"}
+2026-08-22 11:51:53 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 11:51:53 [[32minfo[39m]: Redis connected 
+2026-08-22 11:51:53 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 11:51:53 [[32minfo[39m]: Redis connected 
+2026-08-22 11:51:53 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 11:51:53 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 11:51:53 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 11:53:21 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 11:53:21 [[32minfo[39m]: Redis connected 
+2026-08-22 11:53:21 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 11:53:54 [[32minfo[39m]: SIGINT received — shutting down gracefully 
+2026-08-22 11:54:01 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 11:54:01 [[32minfo[39m]: Redis connected 
+2026-08-22 11:54:01 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 11:54:01 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 12:00:01 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 12:04:54 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":643}
+2026-08-22 12:04:55 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1477ms","ip":"::1"}
+2026-08-22 12:04:56 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/dashboard","status":200,"duration":"219ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 13:00:03 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 14:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 14:01:09 [[32minfo[39m]: SIGINT received — shutting down gracefully 
+2026-08-22 14:18:02 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 14:18:02 [[32minfo[39m]: Redis connected 
+2026-08-22 14:18:02 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 14:18:02 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 14:37:33 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 14:37:33 [[32minfo[39m]: Redis connected 
+2026-08-22 14:37:33 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 14:37:33 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 14:41:47 [[32minfo[39m]: SIGINT received — shutting down gracefully 
+2026-08-22 14:41:53 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 14:41:53 [[32minfo[39m]: Redis connected 
+2026-08-22 14:41:53 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 14:41:53 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 14:55:32 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 14:55:32 [[32minfo[39m]: Redis connected 
+2026-08-22 14:55:32 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 14:55:32 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 14:59:59 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1055}
+2026-08-22 14:59:59 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"1121ms","ip":"::1"}
+2026-08-22 15:00:00 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 15:02:25 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":944}
+2026-08-22 15:02:26 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2060ms","ip":"::1"}
+2026-08-22 15:26:36 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":2469}
+2026-08-22 15:26:36 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"2524ms","ip":"::1"}
+2026-08-22 15:45:08 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 15:45:08 [[32minfo[39m]: Redis connected 
+2026-08-22 15:45:09 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 15:45:09 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 15:46:12 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1305}
+2026-08-22 15:46:13 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2541ms","ip":"::1"}
+2026-08-22 15:50:03 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1212}
+2026-08-22 15:50:05 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2370ms","ip":"::1"}
+2026-08-22 15:50:12 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1274ms","ip":"::1"}
+2026-08-22 15:53:05 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1172}
+2026-08-22 15:53:06 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2318ms","ip":"::1"}
+2026-08-22 15:53:06 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/dashboard","status":200,"duration":"263ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 15:53:17 [[31merror[39m]: Unhandled error invalid input syntax for type uuid: "me" {"stack":"error: invalid input syntax for type uuid: \"me\"\n    at C:\\wellconsult\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at query (C:\\wellconsult\\backend\\src\\config\\database.ts:26:20)\n    at queryOne (C:\\wellconsult\\backend\\src\\config\\database.ts:36:16)\n    at Object.getById (C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.service.ts:73:18)\n    at C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.routes.ts:18:22"}
+2026-08-22 15:53:17 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/appointments/me","status":500,"duration":"145ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 15:53:19 [[31merror[39m]: Unhandled error invalid input syntax for type uuid: "me" {"stack":"error: invalid input syntax for type uuid: \"me\"\n    at C:\\wellconsult\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at query (C:\\wellconsult\\backend\\src\\config\\database.ts:26:20)\n    at queryOne (C:\\wellconsult\\backend\\src\\config\\database.ts:36:16)\n    at Object.getById (C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.service.ts:73:18)\n    at C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.routes.ts:18:22"}
+2026-08-22 15:53:19 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/appointments/me","status":500,"duration":"845ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 15:53:23 [[31merror[39m]: Unhandled error invalid input syntax for type uuid: "me" {"stack":"error: invalid input syntax for type uuid: \"me\"\n    at C:\\wellconsult\\backend\\node_modules\\pg-pool\\index.js:45:11\n    at processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at query (C:\\wellconsult\\backend\\src\\config\\database.ts:26:20)\n    at queryOne (C:\\wellconsult\\backend\\src\\config\\database.ts:36:16)\n    at Object.getById (C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.service.ts:73:18)\n    at C:\\wellconsult\\backend\\src\\modules\\appointments\\appointments.routes.ts:18:22"}
+2026-08-22 15:53:23 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/appointments/me","status":500,"duration":"1369ms","ip":"::1","userId":"17cc76d3-c857-4ebb-bb96-5643347805e8"}
+2026-08-22 15:53:28 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/patients","status":404,"duration":"5ms","ip":"::1"}
+2026-08-22 15:53:29 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/patients","status":404,"duration":"2ms","ip":"::1"}
+2026-08-22 15:53:31 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/patients","status":404,"duration":"2ms","ip":"::1"}
+2026-08-22 15:53:33 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/profile","status":404,"duration":"2ms","ip":"::1"}
+2026-08-22 15:53:34 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/profile","status":404,"duration":"3ms","ip":"::1"}
+2026-08-22 15:53:36 [[32minfo[39m]: HTTP {"method":"GET","path":"/api/v1/doctors/me/profile","status":404,"duration":"2ms","ip":"::1"}
+2026-08-22 15:55:40 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1396}
+2026-08-22 15:55:41 [[32minfo[39m]: User registered {"userId":"684b57b3-d6ad-48fb-9029-faca6eca1bcb","role":"patient"}
+2026-08-22 15:55:41 [[32minfo[39m]: HTTP {"method":"POST","path":"/register","status":201,"duration":"2524ms","ip":"::1"}
+2026-08-22 15:57:18 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1319}
+2026-08-22 15:57:19 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2481ms","ip":"::1"}
+2026-08-22 15:58:12 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":1422}
+2026-08-22 15:58:12 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"1633ms","ip":"::1"}
+2026-08-22 16:00:00 [[32minfo[39m]: [Scheduler] Sending review prompts 
+2026-08-22 16:00:01 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 16:00:01 [[31merror[39m]: [Scheduler] Review prompt error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 16:01:03 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":733}
+2026-08-22 16:01:04 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1798ms","ip":"::1"}
+2026-08-22 16:01:09 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":304,"duration":"277ms","ip":"::1"}
+2026-08-22 16:49:08 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":2340}
+2026-08-22 16:49:09 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"3089ms","ip":"::1"}
+2026-08-22 16:49:29 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"414ms","ip":"::1"}
+2026-08-22 16:50:05 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1065}
+2026-08-22 16:50:06 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1883ms","ip":"::1"}
+2026-08-22 16:50:12 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":304,"duration":"278ms","ip":"::1"}
+2026-08-22 16:53:15 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1446}
+2026-08-22 16:53:16 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2374ms","ip":"::1"}
+2026-08-22 16:53:20 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"364ms","ip":"::1"}
+2026-08-22 16:53:29 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":304,"duration":"362ms","ip":"::1"}
+2026-08-22 16:53:37 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"422ms","ip":"::1"}
+2026-08-22 16:53:39 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"255ms","ip":"::1"}
+2026-08-22 16:53:40 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"318ms","ip":"::1"}
+2026-08-22 16:53:41 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"392ms","ip":"::1"}
+2026-08-22 16:53:42 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"435ms","ip":"::1"}
+2026-08-22 16:54:00 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/appointments","status":200,"duration":"636ms","ip":"::1","userId":"684b57b3-d6ad-48fb-9029-faca6eca1bcb"}
+2026-08-22 16:54:05 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/records","status":200,"duration":"363ms","ip":"::1","userId":"684b57b3-d6ad-48fb-9029-faca6eca1bcb"}
+2026-08-22 16:54:06 [[32minfo[39m]: HTTP {"method":"GET","path":"/me/profile","status":200,"duration":"158ms","ip":"::1","userId":"684b57b3-d6ad-48fb-9029-faca6eca1bcb"}
+2026-08-22 17:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 17:02:49 [[32minfo[39m]: SIGINT received — shutting down gracefully 
+2026-08-22 17:03:44 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 17:03:44 [[32minfo[39m]: Redis connected 
+2026-08-22 17:03:44 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 17:03:44 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 17:59:58 [[32minfo[39m]: HTTP {"method":"GET","path":"/health","status":200,"duration":"18ms","ip":"::1"}
+2026-08-22 17:59:58 [[32minfo[39m]: HTTP {"method":"GET","path":"/favicon.ico","status":404,"duration":"4ms","ip":"::1"}
+2026-08-22 18:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 18:00:30 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1387}
+2026-08-22 18:00:31 [[32minfo[39m]: User registered {"userId":"b6414699-db8a-4c9f-9275-8160d72e0f1d","role":"patient"}
+2026-08-22 18:00:31 [[32minfo[39m]: HTTP {"method":"POST","path":"/register","status":201,"duration":"2823ms","ip":"::1"}
+2026-08-22 18:02:57 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1046}
+2026-08-22 18:02:59 [[32minfo[39m]: User registered {"userId":"7c015ec3-497c-48ae-b202-ba9b4458110e","role":"patient"}
+2026-08-22 18:02:59 [[32minfo[39m]: HTTP {"method":"POST","path":"/register","status":201,"duration":"2276ms","ip":"::1"}
+2026-08-22 18:10:43 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1407}
+2026-08-22 18:10:43 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2390ms","ip":"::1"}
+2026-08-22 18:10:50 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"799ms","ip":"::1"}
+2026-08-22 18:10:53 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"1032ms","ip":"::1"}
+2026-08-22 18:10:57 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"955ms","ip":"::1"}
+2026-08-22 18:11:22 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"590ms","ip":"::1"}
+2026-08-22 18:12:16 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1094}
+2026-08-22 18:12:17 [[32minfo[39m]: HTTP {"method":"POST","path":"/login","status":200,"duration":"2021ms","ip":"::1"}
+2026-08-22 18:13:28 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1059}
+2026-08-22 18:13:28 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"1554ms","ip":"::1"}
+2026-08-22 18:13:29 [[32minfo[39m]: HTTP {"method":"POST","path":"/refresh","status":200,"duration":"516ms","ip":"::1"}
+2026-08-22 18:13:29 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"746ms","ip":"::1"}
+2026-08-22 18:13:52 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"192ms","ip":"::1"}
+2026-08-22 18:15:00 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1","duration":1226}
+2026-08-22 18:15:01 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"1741ms","ip":"::1"}
+2026-08-22 18:15:01 [[32minfo[39m]: HTTP {"method":"POST","path":"/refresh","status":200,"duration":"404ms","ip":"::1"}
+2026-08-22 18:15:02 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"652ms","ip":"::1"}
+2026-08-22 19:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
