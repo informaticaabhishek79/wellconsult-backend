@@ -55,13 +55,12 @@ router.put('/:id/notes', authorize('doctor'), async (req, res, next) => {
         'SELECT doctor_id, patient_id FROM appointments WHERE id=$1', [req.params.id]
       );
       if (!appt) throw new AppError(404, 'NOT_FOUND', 'Appointment not found.');
-      const [newC] = await query(
-        `INSERT INTO consultations (appointment_id, doctor_id, patient_id, session_status)
-         VALUES ($1,$2,$3,'scheduled') RETURNING id`,
-        [req.params.id, appt.doctor_id, appt.patient_id]
-      );
-      c = newC;
-    }
+     const [newC] = await query<{ id: string }>(
+  `INSERT INTO consultations (appointment_id, doctor_id, patient_id, session_status)
+   VALUES ($1,$2,$3,'scheduled') RETURNING id`,
+  [req.params.id, appt.doctor_id, appt.patient_id]
+);
+c = newC as { id: string };
     await query(
       `UPDATE consultations SET clinical_notes=$1, diagnosis=$2,
        follow_up_notes=$3, follow_up_days=$4 WHERE id=$5`,
