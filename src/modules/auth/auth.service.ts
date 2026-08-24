@@ -2,7 +2,7 @@ import { query, queryOne, withTransaction } from '../../config/database';
 import { redis } from '../../config/redis';
 import { hashPassword, comparePassword } from '../../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt';
-import { generateOtp, OTP_TTL_SECONDS } from '../../utils/otp';
+import { generateOtp } from '../../utils/otp';
 import { AppError } from '../../middleware/errorHandler';
 import { User } from '../../types';
 import { logger } from '../../utils/logger';
@@ -36,8 +36,7 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
     subject,
     html: `
       <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
-          <div style="width:36px;height:36px;background:#1D9E75;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:18px">W</div>
+        <div style="margin-bottom:24px">
           <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#1D9E75">Consult</span></span>
         </div>
         <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
@@ -51,13 +50,11 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
           <p style="color:#0F6E56;font-size:13px;margin:8px 0 0">Expires in 10 minutes</p>
         </div>
         <p style="color:#A8A69E;font-size:13px;line-height:1.6">
-          If you didn't request this, you can safely ignore this email. 
-          Your account is secure.
+          If you did not request this, you can safely ignore this email.
         </p>
         <hr style="border:none;border-top:1px solid #E0DDD5;margin:24px 0">
         <p style="color:#A8A69E;font-size:12px;text-align:center">
-          WellConsult — Holistic healthcare, digitally<br>
-          <a href="https://wellconsult-frontend.onrender.com" style="color:#1D9E75">wellconsult-frontend.onrender.com</a>
+          WellConsult — Holistic healthcare, digitally
         </p>
       </div>
     `,
@@ -77,7 +74,8 @@ export const AuthService = {
 
     const password_hash = await hashPassword(body.password);
 
-    return withTransaction(async (client) => {
+    // ── Transaction: create user + profile ─────────────────
+    const result = await withTransaction(async (client) => {
       const [user] = await client.query<User>(
         `INSERT INTO users (full_name, email, phone, password_hash, role)
          VALUES ($1, $2, $3, $4, $5) RETURNING id, role`,
@@ -97,12 +95,18 @@ export const AuthService = {
         );
       }
 
-      // Send OTP
-      await AuthService.sendOtp(user.id, 'email');
-
       logger.info('User registered', { userId: user.id, role: body.role });
-      return { user_id: user.id, role: body.role };
+      return { user_id: user.id as string, role: body.role };
     });
+
+    // ── Send OTP AFTER transaction commits ──────────────────
+    try {
+      await AuthService.sendOtp(result.user_id, 'email');
+    } catch (err) {
+      logger.error('Failed to send OTP after registration', { error: (err as Error).message });
+    }
+
+    return result;
   },
 
   async login(email: string, password: string) {
@@ -197,7 +201,6 @@ export const AuthService = {
       [userId, otp, purpose]
     );
 
-    // Get user details for email
     const user = await queryOne<{ email: string; full_name: string }>(
       'SELECT email, full_name FROM users WHERE id=$1', [userId]
     );
@@ -210,7 +213,7 @@ export const AuthService = {
       }
     }
 
-    logger.info('OTP generated', { userId, purpose, otp }); // remove otp log in production
+    logger.info('OTP generated', { userId, purpose, otp });
   },
 
   async verifyOtp(userId: string, otpCode: string, purpose: string): Promise<void> {
