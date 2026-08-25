@@ -15,7 +15,7 @@ router.post('/', authenticate, authorize('patient'), async (req, res, next) => {
 
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    sendSuccess(res, await AppointmentsService.getById(req.params.id, req.user!.sub, req.user!.role));
+sendSuccess(res, await AppointmentsService.getById(req.params.id));
   } catch (e) { next(e); }
 });
 
