@@ -3,12 +3,16 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { AppointmentsService } from './appointments.service';
 import { sendSuccess, sendCreated } from '../../utils/apiResponse';
+import { query } from '../../config/database';
+import { AppError } from '../../middleware/errorHandler';
 
 const router = Router();
 
 router.post('/', authenticate, authorize('patient'), async (req, res, next) => {
   try {
-    const data = await AppointmentsService.book(req.user!.patientId!, req.body);
+    const [patient] = await query<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [req.user!.sub]);
+           if (!patient) throw new AppError(404, 'NOT_FOUND', 'Patient profile not found.');
+    const data = await AppointmentsService.book(patient.id, req.body);
     sendCreated(res, data);
   } catch (e) { next(e); }
 });
