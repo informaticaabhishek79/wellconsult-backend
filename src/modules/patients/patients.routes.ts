@@ -42,7 +42,7 @@ router.get('/me/appointments', async (req, res, next) => {
     if (!pat) throw new AppError(404, 'NOT_FOUND', 'Patient not found.');
     const rows = await query(
       `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status,
-              u.full_name AS doctor_name, d.medical_system, d.specialization
+              u.full_name AS doctor_name, d.id AS doctor_id, d.medical_system, d.specialization
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id
        JOIN users u ON u.id = d.user_id
