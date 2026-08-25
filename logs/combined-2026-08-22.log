@@ -206,3 +206,27 @@
 2026-08-22 19:14:07 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"279ms","ip":"::1"}
 2026-08-22 19:15:10 [[33mwarn[39m]: Slow query detected {"sql":"SELECT COUNT(*)::int AS count FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.profile_status = 'verified' AND u.is_active = TRUE AND d.medical_system = $1","duration":1197}
 2026-08-22 19:15:10 [[32minfo[39m]: HTTP {"method":"GET","path":"/","status":200,"duration":"1401ms","ip":"::1"}
+2026-08-22 20:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 20:11:40 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 20:11:40 [[32minfo[39m]: Redis connected 
+2026-08-22 20:11:40 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 20:11:40 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 21:08:18 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 21:08:18 [[32minfo[39m]: Redis connected 
+2026-08-22 21:08:18 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 21:08:18 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 21:19:28 [[33mwarn[39m]: Slow query detected {"sql":"SELECT id FROM users WHERE email = $1","duration":1242}
+2026-08-22 21:19:28 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"1272ms","ip":"::1"}
+2026-08-22 21:19:33 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"120ms","ip":"::1"}
+2026-08-22 21:19:34 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"221ms","ip":"::1"}
+2026-08-22 21:19:35 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"134ms","ip":"::1"}
+2026-08-22 21:19:35 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"190ms","ip":"::1"}
+2026-08-22 21:19:36 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/register","status":409,"duration":"168ms","ip":"::1"}
+2026-08-22 21:19:59 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"956ms","ip":"::1"}
+2026-08-22 21:20:03 [[32minfo[39m]: HTTP {"method":"POST","path":"/api/v1/auth/login","status":401,"duration":"925ms","ip":"::1"}
+2026-08-22 21:23:12 [[32minfo[39m]: PostgreSQL connected {"host":"ep-withered-pine-azzm834r-pooler.c-3.ap-southeast-1.aws.neon.tech","db":"wellconsult"}
+2026-08-22 21:23:12 [[32minfo[39m]: Redis connected 
+2026-08-22 21:23:12 [[32minfo[39m]: [Scheduler] All cron jobs registered 
+2026-08-22 21:23:12 [[32minfo[39m]: WellConsult API running {"port":4000,"env":"development","url":"http://localhost:4000/api/v1"}
+2026-08-22 22:00:02 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
+2026-08-22 23:00:01 [[31merror[39m]: [Scheduler] 1h reminder error {"error":"column pu.fcm_token does not exist"}
