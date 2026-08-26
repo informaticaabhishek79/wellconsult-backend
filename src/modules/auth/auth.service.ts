@@ -171,8 +171,10 @@ export const AuthService = {
        VALUES ($1, $2, $3, NOW() + INTERVAL '10 minutes')`,
       [userId, otp, purpose]
     );
-    // In production: call Twilio/Nodemailer here
-    logger.info('OTP generated', { userId, purpose, otp }); // remove otp log in prod
+    // Send OTP email via Resend
+    const user = await queryOne<{ email: string; full_name: string }>('SELECT email, full_name FROM users WHERE id=$1', [userId]);
+    if (user) await sendOtpEmail(user.email, user.full_name, otp, purpose);
+    logger.info('OTP generated', { userId, purpose });
   },
 
   async verifyOtp(userId: string, otpCode: string, purpose: string): Promise<void> {
