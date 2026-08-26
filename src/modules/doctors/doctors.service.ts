@@ -126,3 +126,25 @@ export const DoctorsService = {
     return { stats, upcoming };
   },
 };
+
+  async updateFees(doctorId: string, body: { consult_type: string; fee_amount: number; currency: string }) {
+    const { query } = await import('../../config/database');
+    await query(
+      `INSERT INTO consultation_fees (doctor_id, consult_type, fee_amount, currency)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (doctor_id, consult_type) DO UPDATE SET fee_amount=$3, currency=$4`,
+      [doctorId, body.consult_type, body.fee_amount, body.currency || 'INR']
+    );
+    return { success: true };
+  },
+
+  async addAvailability(doctorId: string, body: { day_of_week: number; slot_start: string; slot_end: string }) {
+    const { query } = await import('../../config/database');
+    await query(
+      `INSERT INTO doctor_availability (doctor_id, day_of_week, slot_start, slot_end, is_active)
+       VALUES ($1, $2, $3, $4, TRUE)
+       ON CONFLICT (doctor_id, day_of_week, slot_start) DO NOTHING`,
+      [doctorId, body.day_of_week, body.slot_start, body.slot_end]
+    );
+    return { success: true };
+  },
