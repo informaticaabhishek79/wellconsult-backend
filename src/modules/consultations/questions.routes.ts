@@ -50,7 +50,7 @@ router.get('/', authenticate, authorize('patient'), async (req, res, next) => {
 // Doctor gets pending questions for their specialty
 router.get('/pending', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
-    const [doctor] = await query<{ medical_system: string }>('SELECT medical_system FROM doctors WHERE id=$1', [req.user!.doctorId]);
+    const [doctor] = await query<{ id: string; medical_system: string }>('SELECT id, medical_system FROM doctors WHERE id=$1', [req.user!.doctorId]);
     
     const questions = await query(
       `SELECT dq.*, u.full_name AS patient_name
