@@ -125,7 +125,6 @@ export const DoctorsService = {
     );
     return { stats, upcoming };
   },
-};
 
   async updateFees(doctorId: string, body: { consult_type: string; fee_amount: number; currency: string }) {
     const { query } = await import('../../config/database');
@@ -148,3 +147,5 @@ export const DoctorsService = {
     );
     return { success: true };
   },
+
+};
