@@ -65,7 +65,7 @@ router.put('/:id/notes', authorize('doctor'), async (req, res, next) => {
          VALUES ($1,$2,$3,'scheduled') RETURNING id`,
         [req.params.id, appt.doctor_id, appt.patient_id]
       );
-      c = newC;
+      c = newC as { id: string };
     }
     await query(
       `UPDATE consultations SET clinical_notes=$1, diagnosis=$2,
