@@ -127,7 +127,7 @@ export const AuthService = {
       access_token:  accessToken,
       refresh_token: refreshToken,
       expires_in:    900,
-      user: { id: user.id, full_name: user.full_name, role: user.role },
+      user: { id: user.id, full_name: user.full_name, role: user.role, doctorId: doctor?.id, patientId: patient?.id },
     };
   },
 
