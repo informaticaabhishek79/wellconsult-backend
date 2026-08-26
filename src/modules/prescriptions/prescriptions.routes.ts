@@ -42,7 +42,7 @@ router.post('/', authorize('doctor'), async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const { query } = await import('../../config/database');
-    let prescriptions;
+    let prescriptions: any[] = [];
     if (req.user!.role === 'patient') {
       const [patient] = await query<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [req.user!.sub]);
       if (!patient) { sendSuccess(res, []); return; }
