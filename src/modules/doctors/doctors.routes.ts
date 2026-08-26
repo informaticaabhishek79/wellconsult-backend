@@ -53,6 +53,39 @@ router.post('/me/availability', authenticate, authorize('doctor'), async (req, r
   } catch (e) { next(e); }
 });
 
+router.get('/me/appointments', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { query } = await import('../../config/database');
+    const appointments = await query(
+      `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status,
+              u.full_name AS patient_name, p.id AS patient_id
+       FROM appointments a
+       JOIN patients p ON p.id = a.patient_id
+       JOIN users u ON u.id = p.user_id
+       WHERE a.doctor_id = $1
+       ORDER BY a.appt_date DESC, a.appt_time DESC`,
+      [req.user!.doctorId]
+    );
+    sendSuccess(res, appointments);
+  } catch (e) { next(e); }
+});
+
+router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { query } = await import('../../config/database');
+    await query("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    sendSuccess(res, { message: 'Appointment confirmed' });
+  } catch (e) { next(e); }
+});
+
+router.patch('/me/appointments/:id/complete', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { query } = await import('../../config/database');
+    await query("UPDATE appointments SET status='completed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    sendSuccess(res, { message: 'Appointment completed' });
+  } catch (e) { next(e); }
+});
+
 // Public doctor detail (must be last to avoid conflicts with /me routes)
 router.get('/:id', async (req, res, next) => {
   try { sendSuccess(res, await DoctorsService.getById(req.params.id)); }
