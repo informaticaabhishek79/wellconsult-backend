@@ -13,10 +13,13 @@ import nodemailer from 'nodemailer';
 function getTransporter() {
   if (!env.smtp.user || !env.smtp.pass || env.smtp.user === 'placeholder') return null;
   return nodemailer.createTransport({
-    host:   env.smtp.host,
-    port:   env.smtp.port,
-    secure: false,
-    auth:   { user: env.smtp.user, pass: env.smtp.pass },
+    host:              env.smtp.host,
+    port:              env.smtp.port,
+    secure:            env.smtp.port === 465,
+    auth:              { user: env.smtp.user, pass: env.smtp.pass },
+    connectionTimeout: 5000,
+    greetingTimeout:   5000,
+    socketTimeout:     5000,
   });
 }
 
@@ -40,13 +43,13 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
           <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#1D9E75">Consult</span></span>
         </div>
         <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
-          ${purpose === 'password_reset' ? 'Reset your password' : 'Verify your account'}
+          \${purpose === 'password_reset' ? 'Reset your password' : 'Verify your account'}
         </h2>
         <p style="color:#73726C;font-size:15px;line-height:1.6;margin:0 0 24px">
-          Hi ${toName}, use the code below to ${purpose === 'password_reset' ? 'reset your password' : 'verify your WellConsult account'}.
+          Hi \${toName}, use the code below to \${purpose === 'password_reset' ? 'reset your password' : 'verify your WellConsult account'}.
         </p>
         <div style="background:#E1F5EE;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
-          <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#1D9E75">${otp}</div>
+          <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#1D9E75">\${otp}</div>
           <p style="color:#0F6E56;font-size:13px;margin:8px 0 0">Expires in 10 minutes</p>
         </div>
         <p style="color:#A8A69E;font-size:13px;line-height:1.6">
@@ -134,7 +137,7 @@ export const AuthService = {
     const refreshToken = signRefreshToken({ sub: user.id });
 
     try {
-      await redis.setEx(`refresh:${user.id}`, 30 * 24 * 60 * 60, refreshToken);
+      await redis.setEx(`refresh:\${user.id}`, 30 * 24 * 60 * 60, refreshToken);
     } catch {
       logger.warn('Redis unavailable — refresh token not cached');
     }
@@ -149,8 +152,8 @@ export const AuthService = {
 
   async logout(accessToken: string, userId: string): Promise<void> {
     try {
-      await redis.setEx(`blacklist:${accessToken}`, 900, '1');
-      await redis.del(`refresh:${userId}`);
+      await redis.setEx(`blacklist:\${accessToken}`, 900, '1');
+      await redis.del(`refresh:\${userId}`);
     } catch {
       logger.warn('Redis unavailable — token not blacklisted');
     }
@@ -165,7 +168,7 @@ export const AuthService = {
     }
 
     try {
-      const stored = await redis.get(`refresh:${payload.sub}`);
+      const stored = await redis.get(`refresh:\${payload.sub}`);
       if (stored && stored !== refreshToken) {
         throw new AppError(401, 'REFRESH_TOKEN_REUSE', 'Refresh token has already been used.');
       }
@@ -184,7 +187,7 @@ export const AuthService = {
     const newRefresh = signRefreshToken({ sub: user.id });
 
     try {
-      await redis.setEx(`refresh:${user.id}`, 30 * 24 * 60 * 60, newRefresh);
+      await redis.setEx(`refresh:\${user.id}`, 30 * 24 * 60 * 60, newRefresh);
     } catch {
       logger.warn('Redis unavailable — refresh token not cached');
     }

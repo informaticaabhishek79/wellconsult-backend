@@ -14,11 +14,14 @@ const razorpay = new Razorpay({
 
 function getTransporter() {
   if (!env.smtp.user || !env.smtp.pass || env.smtp.user === 'placeholder') return null;
-  return nodemailer.createTransport({
-    host:   env.smtp.host,
-    port:   env.smtp.port,
-    secure: env.smtp.port === 465,
-    auth:   { user: env.smtp.user, pass: env.smtp.pass },
+    return nodemailer.createTransport({
+    host:            env.smtp.host,
+    port:            env.smtp.port,
+    secure:          env.smtp.port === 465,
+    auth:            { user: env.smtp.user, pass: env.smtp.pass },
+    connectionTimeout: 5000,
+    greetingTimeout:   5000,
+    socketTimeout:     5000,
   });
 }
 
@@ -236,8 +239,8 @@ export const AppointmentsService = {
       'SELECT status, payment_id FROM appointments WHERE id=$1', [appointmentId]
     );
     if (!appt) throw new AppError(404, 'NOT_FOUND', 'Appointment not found.');
-    if (['completed','cancelled'].includes(appt.status))
-      throw new AppError(422, 'CANNOT_CANCEL', 'This appointment cannot be cancelled.');
+    if (['completed','cancelled','no_show'].includes(appt.status))
+     throw new AppError(422, 'CANNOT_CANCEL', 'This appointment cannot be cancelled.');
 
     await query(
       `UPDATE appointments SET status='cancelled', cancel_reason=$1, updated_at=NOW() WHERE id=$2`,
@@ -303,3 +306,4 @@ export const AppointmentsService = {
     return { rows, total: parseInt(count, 10), page, limit };
   },
 };
+
