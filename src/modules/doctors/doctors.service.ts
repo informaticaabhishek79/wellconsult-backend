@@ -95,13 +95,15 @@ export const DoctorsService = {
   },
 
   async updateProfile(doctorId: string, body: Record<string, unknown>) {
-    const { bio, specialization, city, languages, experience_years } = body;
+    const { bio, specialization, city, languages, experience_years, medical_system, degree, reg_number, reg_body, consult_types } = body;
     await query(
       `UPDATE doctors SET bio=$1, specialization=$2, city=$3, languages=$4,
-       experience_years=$5, updated_at=NOW() WHERE id=$6`,
-      [bio, specialization, city, languages, experience_years, doctorId]
+       experience_years=$5, medical_system=COALESCE($6, medical_system),
+       degree=COALESCE($7, degree), reg_number=COALESCE($8, reg_number),
+       reg_body=COALESCE($9, reg_body), updated_at=NOW() WHERE id=$10`,
+      [bio, specialization, city, languages, experience_years, medical_system, degree, reg_number, reg_body, doctorId]
     );
-    return this.getById(doctorId);
+    return this.getMyProfile(doctorId);
   },
 
   async getDashboard(doctorId: string) {
