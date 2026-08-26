@@ -167,8 +167,8 @@ export const AppointmentsService = {
       return { appointment_id: appt.id, status: appt.status, payment_id: payment.id, rzpOrderId, feeAmount, currency: fee!.currency };
     });
 
-    // Send emails to both patient and doctor
-    try {
+       // Send emails async — fire and forget, don't block response
+        setImmediate(async () => { try {
       const [apptDetails] = await query(
         `SELECT a.appt_date, a.appt_time, a.consult_type,
                 pu.full_name AS patient_name, pu.email AS patient_email,
@@ -201,9 +201,9 @@ export const AppointmentsService = {
           isEmergency: body.is_emergency, action: 'booked',
         });
       }
-    } catch (err) {
+        } catch (err) {
       logger.error('Failed to send appointment emails', { error: (err as Error).message });
-    }
+    }});
 
     return {
       appointment_id: result.appointment_id,
