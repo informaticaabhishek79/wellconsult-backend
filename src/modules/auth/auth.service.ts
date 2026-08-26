@@ -6,6 +6,47 @@ import { generateOtp, OTP_TTL_SECONDS } from '../../utils/otp';
 import { AppError } from '../../middleware/errorHandler';
 import { User } from '../../types';
 import { logger } from '../../utils/logger';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY || '');
+
+async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpose: string) {
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn('RESEND_API_KEY not set — skipping OTP email');
+    return;
+  }
+  const subject = purpose === 'password_reset'
+    ? 'Reset your WellConsult password'
+    : 'Verify your WellConsult account';
+  try {
+    await resend.emails.send({
+      from: 'WellConsult <onboarding@resend.dev>',
+      to:   toEmail,
+      subject,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff">
+          <div style="margin-bottom:24px">
+            <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span>
+          </div>
+          <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
+            ${purpose === 'password_reset' ? 'Reset your password' : 'Verify your account'}
+          </h2>
+          <p style="color:#73726C;font-size:15px;line-height:1.6;margin:0 0 24px">
+            Hi ${toName}, use the code below to ${purpose === 'password_reset' ? 'reset your password' : 'verify your WellConsult account'}.
+          </p>
+          <div style="background:#E6F4F1;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
+            <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0A7B6C">${otp}</div>
+            <p style="color:#065E52;font-size:13px;margin:8px 0 0">Expires in 10 minutes</p>
+          </div>
+          <p style="color:#A8A69E;font-size:13px">If you did not request this, you can safely ignore this email.</p>
+        </div>
+      `,
+    });
+    logger.info('OTP email sent via Resend', { to: toEmail, purpose });
+  } catch (err) {
+    logger.error('Resend email failed', { error: (err as Error).message });
+  }
+}
 
 export const AuthService = {
   async register(body: {

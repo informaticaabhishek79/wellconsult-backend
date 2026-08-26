@@ -5,22 +5,15 @@ import { Request } from 'express';
 import Razorpay from 'razorpay';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 const razorpay = new Razorpay({
   key_id:     env.razorpay.keyId     || 'placeholder',
   key_secret: env.razorpay.keySecret || 'placeholder',
 });
 
-function getTransporter() {
-  if (!env.smtp.user || !env.smtp.pass || env.smtp.user === 'placeholder') return null;
-  return nodemailer.createTransport({
-    host:   env.smtp.host,
-    port:   env.smtp.port,
-    secure: env.smtp.port === 465,
-    auth:   { user: env.smtp.user, pass: env.smtp.pass },
-  });
-}
 
 async function sendAppointmentEmail(params: {
   to: string; name: string; role: 'patient' | 'doctor';
@@ -28,13 +21,11 @@ async function sendAppointmentEmail(params: {
   date: string; time: string; type: string;
   isEmergency?: boolean; action: 'booked' | 'cancelled' | 'confirmed';
 }) {
-  const transporter = getTransporter();
-  if (!transporter) return;
-
+  if (!process.env.RESEND_API_KEY) return;
   const { to, name, role, doctorName, patientName, date, time, type, isEmergency, action } = params;
 
   const subjects: Record<string, string> = {
-    booked:    isEmergency ? '⚡ Emergency consultation booked' : 'Appointment confirmed — WellConsult',
+    booked:    isEmergency ? 'Emergency consultation booked — WellConsult' : 'Appointment confirmed — WellConsult',
     cancelled: 'Appointment cancelled — WellConsult',
     confirmed: 'Appointment confirmed by doctor — WellConsult',
   };
@@ -46,61 +37,39 @@ async function sendAppointmentEmail(params: {
   };
 
   try {
-    await transporter.sendMail({
-      from:    `WellConsult <${env.smtp.from}>`,
+    await resend.emails.send({
+      from: 'WellConsult <onboarding@resend.dev>',
       to,
       subject: subjects[action],
       html: `
-        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff">
+        <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff">
           <div style="margin-bottom:24px">
-            <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#1D9E75">Consult</span></span>
+            <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span>
           </div>
-
-          ${isEmergency ? `
-          <div style="background:#FEE2E2;border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:8px">
-            <span style="font-size:20px">⚡</span>
-            <span style="font-size:14px;font-weight:700;color:#991B1B">Emergency consultation</span>
-          </div>` : ''}
-
+          ${isEmergency ? '<div style="background:#FEE2E2;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-weight:700;color:#991B1B">⚡ Emergency consultation</div>' : ''}
           <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
             Hi ${name}, your appointment ${actionText[action]}.
           </h2>
-
           <div style="background:#F8F7F4;border-radius:12px;padding:20px;margin:20px 0">
             <table style="width:100%;border-collapse:collapse">
               ${role === 'patient'
-                ? `<tr><td style="color:#73726C;padding:6px 0;font-size:13px">Doctor</td><td style="font-weight:700;font-size:13px;color:#1A1A18">${doctorName}</td></tr>`
-                : `<tr><td style="color:#73726C;padding:6px 0;font-size:13px">Patient</td><td style="font-weight:700;font-size:13px;color:#1A1A18">${patientName}</td></tr>`
+                ? `<tr><td style="color:#73726C;padding:6px 0;font-size:13px">Doctor</td><td style="font-weight:700;font-size:13px">${doctorName}</td></tr>`
+                : `<tr><td style="color:#73726C;padding:6px 0;font-size:13px">Patient</td><td style="font-weight:700;font-size:13px">${patientName}</td></tr>`
               }
-              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Date</td><td style="font-weight:700;font-size:13px;color:#1A1A18">${date}</td></tr>
-              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Time</td><td style="font-weight:700;font-size:13px;color:#1A1A18">${time}</td></tr>
-              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Type</td><td style="font-weight:700;font-size:13px;color:#1A1A18;text-transform:capitalize">${type}${isEmergency ? ' (Emergency)' : ''}</td></tr>
+              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Date</td><td style="font-weight:700;font-size:13px">${date}</td></tr>
+              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Time</td><td style="font-weight:700;font-size:13px">${time}</td></tr>
+              <tr><td style="color:#73726C;padding:6px 0;font-size:13px">Type</td><td style="font-weight:700;font-size:13px;text-transform:capitalize">${type}</td></tr>
             </table>
           </div>
-
-          ${action === 'booked' && !isEmergency ? `
-          <p style="color:#73726C;font-size:14px;line-height:1.6">
-            Please be ready 5 minutes before your scheduled time.
-            You can join the consultation from the WellConsult app.
-          </p>` : ''}
-
-          ${isEmergency ? `
-          <p style="color:#DC2626;font-size:14px;font-weight:600;line-height:1.6">
-            The doctor has been notified and will connect with you within 30 minutes.
-          </p>` : ''}
-
-          <hr style="border:none;border-top:1px solid #E0DDD5;margin:24px 0">
-          <p style="color:#A8A69E;font-size:12px;text-align:center">
-            WellConsult — Holistic healthcare, digitally<br>
-            <a href="https://wellconsult-frontend.onrender.com" style="color:#1D9E75">wellconsult-frontend.onrender.com</a>
-          </p>
         </div>
       `,
     });
+    logger.info('Appointment email sent', { to, action });
   } catch (err) {
-    logger.error('Failed to send appointment email', { error: (err as Error).message });
+    logger.error('Resend appointment email failed', { error: (err as Error).message });
   }
 }
+
 
 export const AppointmentsService = {
   async book(patientId: string, body: {
