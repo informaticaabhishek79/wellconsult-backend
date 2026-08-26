@@ -62,8 +62,8 @@ export const AuthService = {
 
     const result = await withTransaction(async (client) => {
       const [user] = await client.query<User>(
-        `INSERT INTO users (full_name, email, phone, password_hash, role)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id, role`,
+        `INSERT INTO users (full_name, email, phone, password_hash, role, is_verified)
+         VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, role`,
         [body.full_name, body.email, body.phone, password_hash, body.role]
       ).then(r => r.rows);
 
