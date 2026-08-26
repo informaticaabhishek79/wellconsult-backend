@@ -31,7 +31,7 @@ router.get('/me/dashboard', authenticate, authorize('doctor'), async (req, res, 
 
 router.get('/me/profile', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
-    sendSuccess(res, await DoctorsService.getById(req.user!.doctorId!));
+    sendSuccess(res, await DoctorsService.getMyProfile(req.user!.doctorId!));
   } catch (e) { next(e); }
 });
 

@@ -126,6 +126,22 @@ export const DoctorsService = {
     return { stats, upcoming };
   },
 
+  async getMyProfile(doctorId: string) {
+    const { query, queryOne } = await import('../../config/database');
+    const doctor = await queryOne(
+      `SELECT d.*, u.full_name, u.email, u.avatar_url,
+              ARRAY_AGG(DISTINCT cf.consult_type) FILTER (WHERE cf.consult_type IS NOT NULL) AS consult_types,
+              JSON_AGG(DISTINCT jsonb_build_object('type', cf.consult_type, 'fee', cf.fee_amount)) FILTER (WHERE cf.consult_type IS NOT NULL) AS fees
+       FROM doctors d
+       JOIN users u ON u.id = d.user_id
+       LEFT JOIN consultation_fees cf ON cf.doctor_id = d.id
+       WHERE d.id = $1
+       GROUP BY d.id, u.full_name, u.email, u.avatar_url`,
+      [doctorId]
+    );
+    return doctor;
+  },
+
   async updateFees(doctorId: string, body: { consult_type: string; fee_amount: number; currency: string }) {
     const { query } = await import('../../config/database');
     await query(
