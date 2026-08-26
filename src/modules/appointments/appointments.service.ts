@@ -14,14 +14,11 @@ const razorpay = new Razorpay({
 
 function getTransporter() {
   if (!env.smtp.user || !env.smtp.pass || env.smtp.user === 'placeholder') return null;
-    return nodemailer.createTransport({
-    host:            env.smtp.host,
-    port:            env.smtp.port,
-    secure:          env.smtp.port === 465,
-    auth:            { user: env.smtp.user, pass: env.smtp.pass },
-    connectionTimeout: 5000,
-    greetingTimeout:   5000,
-    socketTimeout:     5000,
+  return nodemailer.createTransport({
+    host:   env.smtp.host,
+    port:   env.smtp.port,
+    secure: env.smtp.port === 465,
+    auth:   { user: env.smtp.user, pass: env.smtp.pass },
   });
 }
 
@@ -167,8 +164,8 @@ export const AppointmentsService = {
       return { appointment_id: appt.id, status: appt.status, payment_id: payment.id, rzpOrderId, feeAmount, currency: fee!.currency };
     });
 
-       // Send emails async — fire and forget, don't block response
-        setImmediate(async () => { try {
+    // Send emails to both patient and doctor
+    try {
       const [apptDetails] = await query(
         `SELECT a.appt_date, a.appt_time, a.consult_type,
                 pu.full_name AS patient_name, pu.email AS patient_email,
@@ -201,9 +198,9 @@ export const AppointmentsService = {
           isEmergency: body.is_emergency, action: 'booked',
         });
       }
-        } catch (err) {
+    } catch (err) {
       logger.error('Failed to send appointment emails', { error: (err as Error).message });
-    }});
+    }
 
     return {
       appointment_id: result.appointment_id,
@@ -239,8 +236,8 @@ export const AppointmentsService = {
       'SELECT status, payment_id FROM appointments WHERE id=$1', [appointmentId]
     );
     if (!appt) throw new AppError(404, 'NOT_FOUND', 'Appointment not found.');
-    if (['completed','cancelled','no_show'].includes(appt.status))
-     throw new AppError(422, 'CANNOT_CANCEL', 'This appointment cannot be cancelled.');
+    if (['completed','cancelled'].includes(appt.status))
+      throw new AppError(422, 'CANNOT_CANCEL', 'This appointment cannot be cancelled.');
 
     await query(
       `UPDATE appointments SET status='cancelled', cancel_reason=$1, updated_at=NOW() WHERE id=$2`,
@@ -251,8 +248,8 @@ export const AppointmentsService = {
       await query(`UPDATE payments SET refund_status='requested' WHERE id=$1`, [appt.payment_id]);
     }
 
-    // Send cancellation emails
-    try {
+    // Send cancellation emails async — don't block response
+    setImmediate(async () => { try {
       const [details] = await query(
         `SELECT a.appt_date, a.appt_time, a.consult_type,
                 pu.full_name AS patient_name, pu.email AS patient_email,
@@ -282,7 +279,7 @@ export const AppointmentsService = {
       }
     } catch (err) {
       logger.error('Failed to send cancellation emails', { error: (err as Error).message });
-    }
+    }});
 
     return { appointment_id: appointmentId, status: 'cancelled', refund_initiated: !!appt.payment_id };
   },
@@ -306,4 +303,3 @@ export const AppointmentsService = {
     return { rows, total: parseInt(count, 10), page, limit };
   },
 };
-
