@@ -38,6 +38,46 @@ router.post('/', authorize('doctor'), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /prescriptions (patient gets their prescriptions)
+router.get('/', async (req, res, next) => {
+  try {
+    const { query } = await import('../../config/database');
+    let prescriptions;
+    if (req.user!.role === 'patient') {
+      const [patient] = await query<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [req.user!.sub]);
+      if (!patient) { sendSuccess(res, []); return; }
+      prescriptions = await query(
+        `SELECT p.id, p.medical_system, p.issued_at,
+                u.full_name AS doctor_name,
+                JSON_AGG(pi ORDER BY pi.id) FILTER (WHERE pi.id IS NOT NULL) AS items
+         FROM prescriptions p
+         JOIN doctors d ON d.id = p.doctor_id
+         JOIN users u ON u.id = d.user_id
+         LEFT JOIN prescription_items pi ON pi.prescription_id = p.id
+         WHERE p.patient_id = $1
+         GROUP BY p.id, u.full_name
+         ORDER BY p.issued_at DESC`,
+        [patient.id]
+      );
+    } else if (req.user!.role === 'doctor') {
+      prescriptions = await query(
+        `SELECT p.id, p.medical_system, p.issued_at,
+                pu.full_name AS patient_name,
+                JSON_AGG(pi ORDER BY pi.id) FILTER (WHERE pi.id IS NOT NULL) AS items
+         FROM prescriptions p
+         JOIN patients pat ON pat.id = p.patient_id
+         JOIN users pu ON pu.id = pat.user_id
+         LEFT JOIN prescription_items pi ON pi.prescription_id = p.id
+         WHERE p.doctor_id = $1
+         GROUP BY p.id, pu.full_name
+         ORDER BY p.issued_at DESC`,
+        [req.user!.doctorId]
+      );
+    } else { prescriptions = []; }
+    sendSuccess(res, prescriptions);
+  } catch (e) { next(e); }
+});
+
 // GET /prescriptions/:id
 router.get('/:id', async (req, res, next) => {
   try {
