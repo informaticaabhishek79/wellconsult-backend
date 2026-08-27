@@ -86,6 +86,20 @@ router.patch('/me/appointments/:id/complete', authenticate, authorize('doctor'),
   } catch (e) { next(e); }
 });
 
+router.post('/me/appointments/:id/followup', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { follow_up_days, notes } = req.body;
+    const { query } = await import('../../config/database');
+    // Update consultation with follow-up info
+    await query(
+      `UPDATE consultations SET follow_up_days=$1, follow_up_notes=$2 
+       WHERE appointment_id=$3 AND doctor_id=$4`,
+      [follow_up_days, notes, req.params.id, req.user!.doctorId]
+    );
+    sendSuccess(res, { message: 'Follow-up period set', follow_up_days });
+  } catch (e) { next(e); }
+});
+
 // Public doctor detail (must be last to avoid conflicts with /me routes)
 router.get('/:id', async (req, res, next) => {
   try { sendSuccess(res, await DoctorsService.getById(req.params.id)); }
