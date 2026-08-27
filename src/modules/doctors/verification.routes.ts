@@ -58,11 +58,13 @@ router.get('/pending', authenticate, authorize('admin'), async (req, res, next) 
     const doctors = await query(
       `SELECT d.id, d.medical_system, d.degree, d.reg_number, d.profile_status, d.specialization, d.city,
               u.full_name, u.email,
-              JSON_AGG(dd ORDER BY dd.document_type) FILTER (WHERE dd.id IS NOT NULL) AS documents
+              JSON_AGG(dd ORDER BY dd.document_type) FILTER (WHERE dd.id IS NOT NULL) AS documents,
+              COUNT(dd.id) AS doc_count
        FROM doctors d JOIN users u ON u.id = d.user_id
        LEFT JOIN doctor_documents dd ON dd.doctor_id = d.id
-       WHERE dd.id IS NOT NULL
-       GROUP BY d.id, u.full_name, u.email ORDER BY d.updated_at ASC`
+       GROUP BY d.id, u.full_name, u.email
+       HAVING COUNT(dd.id) > 0
+       ORDER BY d.updated_at ASC`
     );
     sendSuccess(res, doctors);
   } catch (e) { next(e); }
@@ -83,6 +85,21 @@ router.patch('/:doctorId/decision', authenticate, authorize('admin'), async (req
   try {
     const { decision, reason } = req.body;
     if (!['approved', 'rejected'].includes(decision)) throw new AppError(400, 'INVALID_DECISION', 'Decision must be approved or rejected.');
+    // Check documents uploaded before approving
+    if (decision === 'approved') {
+      const requiredDocs = ['degree_certificate', 'registration_certificate', 'id_proof'];
+      const uploadedDocs = await query(
+        'SELECT document_type FROM doctor_documents WHERE doctor_id=$1',
+        [req.params.doctorId]
+      ) as any[];
+      const uploadedTypes = uploadedDocs.map((d: any) => d.document_type);
+      const missingDocs = requiredDocs.filter(d => !uploadedTypes.includes(d));
+      if (missingDocs.length > 0) {
+        throw new AppError(422, 'DOCUMENTS_MISSING', 
+          `Cannot verify: missing documents — ${missingDocs.join(', ').replace(/_/g, ' ')}`);
+      }
+    }
+
     const status = decision === 'approved' ? 'verified' : 'rejected';
     await query(
       `UPDATE doctors SET profile_status=$1, rejection_reason=$2, verified_at=${decision === 'approved' ? 'NOW()' : 'NULL'} WHERE id=$3`,
