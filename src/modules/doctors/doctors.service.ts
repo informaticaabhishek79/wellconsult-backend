@@ -8,7 +8,7 @@ export const DoctorsService = {
     const { page, limit, offset } = getPagination(req);
     const { medical_system, city, consult_type, language, min_rating, max_fee, experience_min, sort } = req.query;
 
-    const conditions: string[] = ["d.profile_status = 'verified'", 'u.is_active = TRUE'];
+    const conditions: string[] = ['u.is_active = TRUE'];
     const params: unknown[] = [];
     let p = 1;
 
@@ -68,7 +68,7 @@ export const DoctorsService = {
        FROM doctors d
        JOIN users u ON u.id = d.user_id
        LEFT JOIN consultation_fees cf ON cf.doctor_id = d.id
-       WHERE d.id = $1 AND d.profile_status = 'verified'
+       WHERE d.id = $1 AND u.is_active = TRUE
        GROUP BY d.id, u.full_name, u.email, u.avatar_url`,
       [doctorId]
     );
