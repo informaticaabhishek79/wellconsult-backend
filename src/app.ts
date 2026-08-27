@@ -19,6 +19,7 @@ import consultationsRoutes from './modules/consultations/consultations.routes';
 import prescriptionsRoutes from './modules/prescriptions/prescriptions.routes';
 import reviewsRoutes from './modules/reviews/reviews.routes';
 import videoRoutes from './modules/video/video.routes';
+import verificationRoutes from './modules/doctors/verification.routes';
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use(`${base}/consultations`, consultationsRoutes);
 app.use(`${base}/prescriptions`, prescriptionsRoutes);
 app.use(`${base}/reviews`, reviewsRoutes);
 app.use(`${base}/video`, videoRoutes);
+app.use(`${base}/verification`, verificationRoutes);
 app.use(`${base}`,               apiLimiter);
 
 app.use(notFound);
