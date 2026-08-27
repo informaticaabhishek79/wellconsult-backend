@@ -61,7 +61,7 @@ router.get('/pending', authenticate, authorize('admin'), async (req, res, next) 
               JSON_AGG(dd ORDER BY dd.document_type) FILTER (WHERE dd.id IS NOT NULL) AS documents
        FROM doctors d JOIN users u ON u.id = d.user_id
        LEFT JOIN doctor_documents dd ON dd.doctor_id = d.id
-       WHERE d.profile_status IN ('pending','under_review')
+       WHERE dd.id IS NOT NULL
        GROUP BY d.id, u.full_name, u.email ORDER BY d.updated_at ASC`
     );
     sendSuccess(res, doctors);
