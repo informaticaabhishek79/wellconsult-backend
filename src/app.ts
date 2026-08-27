@@ -18,7 +18,6 @@ import patientsRoutes      from './modules/patients/patients.routes';
 import consultationsRoutes from './modules/consultations/consultations.routes';
 import prescriptionsRoutes from './modules/prescriptions/prescriptions.routes';
 import reviewsRoutes from './modules/reviews/reviews.routes';
-import videoRoutes from './modules/video/video.routes';
 
 const app = express();
 
@@ -49,7 +48,6 @@ app.use(`${base}/patients`,      patientsRoutes);
 app.use(`${base}/consultations`, consultationsRoutes);
 app.use(`${base}/prescriptions`, prescriptionsRoutes);
 app.use(`${base}/reviews`, reviewsRoutes);
-app.use(`${base}/video`, videoRoutes);
 app.use(`${base}`,               apiLimiter);
 
 app.use(notFound);
