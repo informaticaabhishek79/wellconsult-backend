@@ -11,17 +11,27 @@ router.use(authenticate);
 // POST /prescriptions (doctor only)
 router.post('/', authorize('doctor'), async (req, res, next) => {
   try {
-    const { consultation_id, medical_system, items } = req.body;
-    const c = await queryOne<{ doctor_id: string; patient_id: string }>(
-      'SELECT doctor_id, patient_id FROM consultations WHERE id=$1', [consultation_id]
-    );
+    const { consultation_id, appointment_id, medical_system, items } = req.body;
+    let c: { doctor_id: string; patient_id: string } | null = null;
+
+    if (consultation_id) {
+      c = await queryOne<{ doctor_id: string; patient_id: string }>(
+        'SELECT doctor_id, patient_id FROM consultations WHERE id=$1', [consultation_id]
+      );
+    } else if (appointment_id) {
+      // Get doctor and patient from appointment directly
+      const appt = await queryOne<{ doctor_id: string; patient_id: string }>(
+        'SELECT doctor_id, patient_id FROM appointments WHERE id=$1', [appointment_id]
+      );
+      c = appt || null;
+    }
     if (!c) throw new AppError(404, 'NOT_FOUND', 'Consultation not found.');
 
     const result = await withTransaction(async (client) => {
       const [rx] = await client.query(
         `INSERT INTO prescriptions (consultation_id, doctor_id, patient_id, medical_system)
          VALUES ($1,$2,$3,$4) RETURNING id, issued_at`,
-        [consultation_id, c.doctor_id, c.patient_id, medical_system]
+        [consultation_id || null, c.doctor_id, c.patient_id, medical_system]
       ).then(r => r.rows);
 
       for (const item of items || []) {
