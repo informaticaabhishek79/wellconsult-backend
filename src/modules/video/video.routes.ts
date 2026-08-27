@@ -3,32 +3,38 @@ import { authenticate } from '../../middleware/authenticate';
 import { query } from '../../config/database';
 import { sendSuccess } from '../../utils/apiResponse';
 import { AppError } from '../../middleware/errorHandler';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
-const CF_APP_ID = process.env.CF_CALLS_APP_ID || '';
+const CF_APP_ID    = process.env.CF_CALLS_APP_ID || '';
 const CF_APP_TOKEN = process.env.CF_CALLS_APP_TOKEN || '';
-const CF_BASE = `https://rtc.live.cloudflare.com/v1/apps/${CF_APP_ID}`;
+const CF_BASE      = `https://rtc.live.cloudflare.com/v1/apps/${CF_APP_ID}`;
 
 async function cfRequest(method: string, path: string, body?: any) {
   const res = await fetch(`${CF_BASE}${path}`, {
     method,
-    headers: {
-      'Authorization': `Bearer ${CF_APP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${CF_APP_TOKEN}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json() as any;
-  if (!res.ok) throw new Error(`CF error: ${data?.errorCode || res.status}`);
-  return data;
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    if (!res.ok) throw new Error(`CF error: ${JSON.stringify(data)}`);
+    return data;
+  } catch (e) {
+    if (!res.ok) throw new Error(`CF HTTP ${res.status}: ${text.slice(0, 200)}`);
+    throw e;
+  }
 }
 
-// Create a new session for a participant
+// Create session + push tracks - backend handles all CF API calls
 router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
   try {
     const apptId = req.params.appointmentId;
+    const { sdp, type, tracks } = req.body;
 
+    // Verify access
     const [appt] = await query(
       `SELECT a.id, d.user_id AS doctor_user_id, p.user_id AS patient_user_id,
               du.full_name AS doctor_name, pu.full_name AS patient_name
@@ -45,45 +51,30 @@ router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
     const hasAccess = appt.doctor_user_id === req.user!.sub || appt.patient_user_id === req.user!.sub;
     if (!hasAccess) throw new AppError(403, 'FORBIDDEN', 'Access denied.');
 
-    // Create a new Cloudflare session
-    const session = await cfRequest('POST', '/sessions/new', {});
+    // Create Cloudflare session
+    const session = await cfRequest('POST', '/sessions/new');
+
+    // If SDP offer provided, push tracks
+    let tracksResult = null;
+    if (sdp && tracks) {
+      tracksResult = await cfRequest('POST', `/sessions/${session.sessionId}/tracks/new`, {
+        sessionDescription: { type, sdp },
+        tracks,
+      });
+    }
+
     const isDoctor = appt.doctor_user_id === req.user!.sub;
 
     sendSuccess(res, {
       session_id: session.sessionId,
-      app_id: CF_APP_ID,
-      room_id: apptId.slice(0, 12),
+      sessionDescription: tracksResult?.sessionDescription || null,
       user_name: isDoctor ? appt.doctor_name : appt.patient_name,
       is_doctor: isDoctor,
     });
-  } catch (e) { next(e); }
-});
-
-// Publish tracks to a session
-router.post('/session/:sessionId/tracks', authenticate, async (req, res, next) => {
-  try {
-    const { tracks } = req.body;
-    const result = await cfRequest('POST', `/sessions/${req.params.sessionId}/tracks/new`, { tracks });
-    sendSuccess(res, result);
-  } catch (e) { next(e); }
-});
-
-// Pull tracks from another session
-router.put('/session/:sessionId/tracks', authenticate, async (req, res, next) => {
-  try {
-    const { tracks } = req.body;
-    const result = await cfRequest('PUT', `/sessions/${req.params.sessionId}/tracks`, { tracks });
-    sendSuccess(res, result);
-  } catch (e) { next(e); }
-});
-
-// Renegotiate SDP
-router.put('/session/:sessionId/renegotiate', authenticate, async (req, res, next) => {
-  try {
-    const { sessionDescription } = req.body;
-    const result = await cfRequest('PUT', `/sessions/${req.params.sessionId}/renegotiate`, { sessionDescription });
-    sendSuccess(res, result);
-  } catch (e) { next(e); }
+  } catch (e) {
+    logger.error('Video session error', { error: (e as Error).message });
+    next(e);
+  }
 });
 
 export default router;
