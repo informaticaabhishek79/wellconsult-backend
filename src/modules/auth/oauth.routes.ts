@@ -101,7 +101,21 @@ router.get('/google/callback', async (req, res) => {
       if (v.expires < Date.now()) oauthSessions.delete(k);
     }
 
-    res.redirect(`${FRONTEND_URL}?oauth_code=${sessionCode}`);
+    // Inject code into a self-contained HTML that posts to opener or uses BroadcastChannel
+    // Since redirect strips params, we embed the React app's index.html with code injected
+    const indexHtml = await fetch(FRONTEND_URL).then(r => r.text()).catch(() => null);
+    
+    if (indexHtml) {
+      const injected = indexHtml.replace(
+        '</head>',
+        `<script>window.__OAUTH_CODE__="${sessionCode}";</script></head>`
+      );
+      res.setHeader('Content-Type', 'text/html');
+      res.send(injected);
+    } else {
+      // Fallback: meta refresh with code in hash
+      res.send('<html><head><meta http-equiv="refresh" content="0;url=' + FRONTEND_URL + '#oauth=' + sessionCode + '"></head><body>Redirecting...</body></html>');
+    }
   } catch (err) {
     logger.error('Google OAuth error', { error: (err as Error).message });
     res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
