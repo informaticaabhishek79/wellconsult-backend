@@ -21,6 +21,7 @@ import reviewsRoutes from './modules/reviews/reviews.routes';
 import videoRoutes from './modules/video/video.routes';
 import oauthRoutes from './modules/auth/oauth.routes';
 import verificationRoutes from './modules/doctors/verification.routes';
+import legalRoutes from './modules/admin/legal.routes';
 
 const app = express();
 app.set('trust proxy', 1); // Trust Render's proxy
@@ -55,6 +56,7 @@ app.use(`${base}/reviews`, reviewsRoutes);
 app.use(`${base}/video`, videoRoutes);
 app.use(`${base}/auth`, oauthRoutes);
 app.use(`${base}/verification`, verificationRoutes);
+app.use(`${base}/legal`, legalRoutes);
 app.use(`${base}`,               apiLimiter);
 
 app.use(notFound);
