@@ -101,7 +101,23 @@ router.get('/google/callback', async (req, res) => {
       if (v.expires < Date.now()) oauthSessions.delete(k);
     }
 
-    res.redirect(`${FRONTEND_URL}/#oauth_code=${sessionCode}`);
+    // Use HTML page to pass code via localStorage then redirect
+    // This bypasses Render's query param stripping
+    res.send(`<!DOCTYPE html>
+<html>
+<head><title>Signing you in...</title></head>
+<body>
+<script>
+  try {
+    localStorage.setItem('oauth_code', '${sessionCode}');
+    window.location.href = '${FRONTEND_URL}';
+  } catch(e) {
+    window.location.href = '${FRONTEND_URL}?oauth_error=storage_failed';
+  }
+</script>
+<p>Signing you in, please wait...</p>
+</body>
+</html>`);
   } catch (err) {
     logger.error('Google OAuth error', { error: (err as Error).message });
     res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
