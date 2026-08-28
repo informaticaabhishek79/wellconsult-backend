@@ -22,6 +22,7 @@ import videoRoutes from './modules/video/video.routes';
 import verificationRoutes from './modules/doctors/verification.routes';
 
 const app = express();
+app.set('trust proxy', 1); // Trust Render's proxy
 
 app.use(helmet());
 app.use(cors({
