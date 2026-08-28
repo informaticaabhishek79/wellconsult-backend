@@ -78,7 +78,7 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
 router.post('/reset-password', authLimiter, async (req, res, next) => {
   try {
     const { query, queryOne } = await import('../../config/database');
-    const bcrypt = await import('bcrypt');
+    const bcrypt = await import('bcryptjs');
     const { user_id, token, new_password } = req.body;
 
     if (!user_id || !token || !new_password) {
@@ -103,7 +103,7 @@ router.post('/reset-password', authLimiter, async (req, res, next) => {
       return;
     }
 
-    const hash = await bcrypt.default.hash(new_password, 10);
+    const hash = await bcrypt.hash(new_password, 10);
     await query('UPDATE users SET password_hash=$1 WHERE id=$2', [hash, user_id]);
     await query('UPDATE otp_verifications SET used=TRUE WHERE id=$1', [otp.id]);
 
