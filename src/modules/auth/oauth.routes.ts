@@ -101,7 +101,7 @@ router.get('/google/callback', async (req, res) => {
       if (v.expires < Date.now()) oauthSessions.delete(k);
     }
 
-    res.redirect(`${FRONTEND_URL}?oauth_code=${sessionCode}`);
+    res.redirect(`${FRONTEND_URL}/#oauth_code=${sessionCode}`);
   } catch (err) {
     logger.error('Google OAuth error', { error: (err as Error).message });
     res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
