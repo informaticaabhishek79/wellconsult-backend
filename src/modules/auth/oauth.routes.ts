@@ -12,6 +12,9 @@ const FRONTEND_URL         = 'https://wellconsult-web.onrender.com';
 const JWT_SECRET           = process.env.JWT_SECRET || 'secret';
 const JWT_REFRESH_SECRET   = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret';
 
+// Temporary session store (in-memory, expires in 5 min)
+const oauthSessions = new Map<string, any>();
+
 // Step 1: Redirect to Google
 router.get('/google', (req, res) => {
   const params = new URLSearchParams({
@@ -25,7 +28,7 @@ router.get('/google', (req, res) => {
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
-// Step 2: Google callback
+// Step 2: Google callback - store session, redirect with short code
 router.get('/google/callback', async (req, res) => {
   try {
     const { code } = req.query;
@@ -51,7 +54,6 @@ router.get('/google/callback', async (req, res) => {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     const googleUser = await userRes.json() as any;
-
     if (!googleUser.email) { res.redirect(`${FRONTEND_URL}?oauth_error=no_email`); return; }
 
     // Find or create user
@@ -61,23 +63,19 @@ router.get('/google/callback', async (req, res) => {
     );
 
     if (!user) {
-      // Create new patient account
       const [newUser] = await query(
         `INSERT INTO users (full_name, email, password_hash, role, is_verified, is_active, avatar_url)
-         VALUES ($1, $2, $3, 'patient', TRUE, TRUE, $4) RETURNING id, full_name, role`,
-        [googleUser.name || googleUser.email.split('@')[0], googleUser.email, 'GOOGLE_OAUTH', googleUser.picture || null]
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'patient', TRUE, TRUE, $3) RETURNING id, full_name, role`,
+        [googleUser.name || googleUser.email.split('@')[0], googleUser.email, googleUser.picture || null]
       ) as any[];
-
-      // Create patient record
       await query('INSERT INTO patients (user_id) VALUES ($1)', [newUser.id]);
-      user = newUser;
+      user = { ...newUser, is_active: true };
     }
 
     if (!user.is_active) { res.redirect(`${FRONTEND_URL}?oauth_error=account_disabled`); return; }
 
     // Get patient/doctor ID
-    let patientId = null;
-    let doctorId = null;
+    let patientId = null, doctorId = null;
     if (user.role === 'patient') {
       const p = await queryOne<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [user.id]);
       patientId = p?.id;
@@ -86,34 +84,43 @@ router.get('/google/callback', async (req, res) => {
       doctorId = d?.id;
     }
 
-    // Generate tokens
-    const accessToken = jwt.sign(
-      { sub: user.id, role: user.role, patientId, doctorId },
-      JWT_SECRET,
-      { expiresIn: '15m' }
-    );
+    // Generate JWT tokens
+    const accessToken  = jwt.sign({ sub: user.id, role: user.role, patientId, doctorId }, JWT_SECRET, { expiresIn: '15m' });
     const refreshToken = jwt.sign({ sub: user.id }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
-    const userData = JSON.stringify({
-      id: user.id,
-      full_name: user.full_name,
-      role: user.role,
-      patientId,
-      doctorId,
+    // Store in memory with short code
+    const sessionCode = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    oauthSessions.set(sessionCode, {
+      accessToken, refreshToken,
+      user: { id: user.id, full_name: user.full_name, role: user.role, patientId, doctorId },
+      expires: Date.now() + 5 * 60 * 1000,
     });
 
-    // Redirect to frontend with tokens
-    const params = new URLSearchParams({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      user: userData,
-    });
+    // Cleanup old sessions
+    for (const [k, v] of oauthSessions) {
+      if (v.expires < Date.now()) oauthSessions.delete(k);
+    }
 
-    res.redirect(`${FRONTEND_URL}?${params}`);
+    res.redirect(`${FRONTEND_URL}?oauth_code=${sessionCode}`);
   } catch (err) {
     logger.error('Google OAuth error', { error: (err as Error).message });
     res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
   }
+});
+
+// Step 3: Frontend exchanges code for tokens
+router.post('/google/token', async (req, res) => {
+  const { code } = req.body;
+  if (!code) { res.status(400).json({ success: false, error: { message: 'No code provided' } }); return; }
+
+  const session = oauthSessions.get(code);
+  if (!session || session.expires < Date.now()) {
+    res.status(400).json({ success: false, error: { message: 'Invalid or expired OAuth code' } });
+    return;
+  }
+
+  oauthSessions.delete(code);
+  res.json({ success: true, data: session });
 });
 
 export default router;
