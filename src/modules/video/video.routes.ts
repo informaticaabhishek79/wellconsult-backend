@@ -57,10 +57,12 @@ router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
     // If SDP offer provided, push tracks
     let tracksResult = null;
     if (sdp && tracks) {
+      logger.info('CF tracks request', { tracks: JSON.stringify(tracks), sessionId: session.sessionId });
       tracksResult = await cfRequest('POST', `/sessions/${session.sessionId}/tracks/new`, {
         sessionDescription: { type, sdp },
         tracks,
       });
+      logger.info('CF tracks response', { type: tracksResult?.sessionDescription?.type, sdp: tracksResult?.sessionDescription?.sdp?.slice(0,200) });
     }
 
     const isDoctor = appt.doctor_user_id === req.user!.sub;
@@ -78,3 +80,39 @@ router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
 });
 
 export default router;
+
+// Pull remote tracks via backend (keeps CF token secure)
+router.post('/session/:appointmentId/pull', authenticate, async (req, res, next) => {
+  try {
+    const { sessionId, remoteSessionId } = req.body;
+    if (!sessionId || !remoteSessionId) throw new AppError(400, 'MISSING_FIELDS', 'sessionId and remoteSessionId required.');
+
+    // Get remote session tracks
+    const remoteSession = await cfRequest('GET', `/sessions/${remoteSessionId}`);
+    const remoteTracks = (remoteSession.tracks || []).filter((t: any) => t.location === 'local');
+
+    sendSuccess(res, { remoteTracks, remoteSession });
+  } catch (e) { next(e); }
+});
+
+// Renegotiate session
+router.put('/session/:appointmentId/renegotiate', authenticate, async (req, res, next) => {
+  try {
+    const { sessionId, sessionDescription } = req.body;
+    if (!sessionId || !sessionDescription) throw new AppError(400, 'MISSING_FIELDS', 'sessionId and sessionDescription required.');
+    const result = await cfRequest('PUT', `/sessions/${sessionId}/renegotiate`, { sessionDescription });
+    sendSuccess(res, result);
+  } catch (e) { next(e); }
+});
+
+// Push pull tracks request 
+router.post('/session/:appointmentId/tracks/pull', authenticate, async (req, res, next) => {
+  try {
+    const { sessionId, sessionDescription, tracks } = req.body;
+    const result = await cfRequest('POST', `/sessions/${sessionId}/tracks/new`, {
+      sessionDescription,
+      tracks,
+    });
+    sendSuccess(res, result);
+  } catch (e) { next(e); }
+});
