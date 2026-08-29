@@ -72,6 +72,7 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
 
 router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
+    const { notifyAppointmentConfirmed } = await import('../../services/notifications');
     const { query } = await import('../../config/database');
     await query("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
     sendSuccess(res, { message: 'Appointment confirmed' });

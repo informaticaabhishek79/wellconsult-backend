@@ -106,6 +106,23 @@ router.patch('/:doctorId/decision', authenticate, authorize('admin'), async (req
       [status, reason || null, req.params.doctorId]
     );
     logger.info('Doctor verification decision', { doctorId: req.params.doctorId, decision, adminId: req.user!.sub });
+    // Send notification
+    setImmediate(async () => {
+      try {
+        const [info] = await query(
+          `SELECT u.phone, u.full_name FROM doctors d JOIN users u ON u.id=d.user_id WHERE d.id=$1`,
+          [req.params.doctorId]
+        ) as any[];
+        if (info) {
+          const { notifyVerificationApproved, notifyVerificationRejected } = await import('../../services/notifications');
+          if (decision === 'approved') {
+            await notifyVerificationApproved({ doctorPhone: info.phone, doctorName: info.full_name });
+          } else {
+            await notifyVerificationRejected({ doctorPhone: info.phone, doctorName: info.full_name, reason });
+          }
+        }
+      } catch {}
+    });
     sendSuccess(res, { message: `Doctor ${decision}`, status });
   } catch (e) { next(e); }
 });
