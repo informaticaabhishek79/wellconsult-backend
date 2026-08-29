@@ -10,20 +10,37 @@ async function twilioRequest(to: string, body: string, channel: 'sms' | 'whatsap
     logger.warn('Twilio not configured, skipping notification');
     return;
   }
-  const from  = channel === 'whatsapp' ? TWILIO_WA : TWILIO_FROM;
-  const toNum = channel === 'whatsapp' ? `whatsapp:${to}` : to;
-  const url   = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
-  const res   = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64'),
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({ From: from, To: toNum, Body: body }),
-  });
-  const data = await res.json() as any;
-  if (!res.ok) throw new Error(`Twilio error: ${data.message}`);
-  return data;
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_SID}/Messages.json`;
+  const auth = 'Basic ' + Buffer.from(`${TWILIO_SID}:${TWILIO_TOKEN}`).toString('base64');
+
+  if (channel === 'whatsapp') {
+    // WhatsApp sandbox with ContentSid (pre-approved Hello World template)
+    const params = new URLSearchParams({
+      From: TWILIO_WA,
+      To: `whatsapp:${to}`,
+      ContentSid: 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+    });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = await res.json() as any;
+    if (!res.ok) throw new Error(`Twilio error: ${data.message}`);
+    return data;
+  } else {
+    // SMS - use verified number to verified number
+    const params = new URLSearchParams({ From: TWILIO_FROM, To: to, Body: body });
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': auth, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params,
+    });
+    const data = await res.json() as any;
+    if (!res.ok) throw new Error(`Twilio error: ${data.message}`);
+    return data;
+  }
 }
 
 async function sendNotification(phone: string | null | undefined, message: string) {
