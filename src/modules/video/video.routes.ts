@@ -57,8 +57,9 @@ router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
     // If SDP offer provided, push tracks
     let tracksResult = null;
     if (sdp && tracks) {
-      logger.info('CF tracks request', { tracks: JSON.stringify(tracks), sessionId: session.sessionId });
-      tracksResult = await cfRequest('POST', `/sessions/${session.sessionId}/tracks/new`, {
+      logger.info('CF tracks request', { tracks: JSON.stringify(tracks), sessionId: session.sessionId || session.session_id });
+      const cfSessionId = session.sessionId || session.session_id;
+      tracksResult = await cfRequest('POST', `/sessions/${cfSessionId}/tracks/new`, {
         sessionDescription: { type, sdp },
         tracks,
       });
@@ -67,8 +68,9 @@ router.post('/session/:appointmentId', authenticate, async (req, res, next) => {
 
     const isDoctor = appt.doctor_user_id === req.user!.sub;
 
+    const cfSessionId2 = session.sessionId || session.session_id;
     sendSuccess(res, {
-      session_id: session.sessionId,
+      session_id: cfSessionId2,
       sessionDescription: tracksResult?.sessionDescription || null,
       user_name: isDoctor ? appt.doctor_name : appt.patient_name,
       is_doctor: isDoctor,
