@@ -92,7 +92,37 @@ export function initSocketServer(httpServer: HttpServer) {
       socket.to(`appointment:${appointmentId}`).emit('user_typing', { userId: user.sub, role: user.role, isTyping });
     });
 
+    // Video room signaling
+    socket.on('join_video_room', ({ roomId, sessionId, userId }: { roomId: string; sessionId: string; userId: string }) => {
+      socket.join(`video:${roomId}`);
+      // Tell new peer about existing peers in room
+      const room = io.sockets.adapter.rooms.get(`video:${roomId}`);
+      const peers: { sessionId: string; userId: string }[] = [];
+      if (room) {
+        for (const socketId of room) {
+          const s = io.sockets.sockets.get(socketId);
+          if (s && (s as any).videoSession && socketId !== socket.id) {
+            peers.push({ sessionId: (s as any).videoSession, userId: (s as any).videoUserId });
+          }
+        }
+      }
+      // Store this peer's session
+      (socket as any).videoSession = sessionId;
+      (socket as any).videoUserId = userId;
+      (socket as any).videoRoom = roomId;
+
+      // Send existing peers to new joiner
+      socket.emit('video_room_peers', peers);
+      // Notify existing peers about new joiner
+      socket.to(`video:${roomId}`).emit('peer_joined_video', { sessionId, userId });
+      logger.info('Peer joined video room', { roomId, sessionId, userId });
+    });
+
     socket.on('disconnect', () => {
+      // Notify video room peers
+      if ((socket as any).videoRoom) {
+        socket.to(`video:${(socket as any).videoRoom}`).emit('peer_left_video', { userId: (socket as any).videoUserId });
+      }
       logger.info('Socket disconnected', { userId: user.sub });
     });
   });
