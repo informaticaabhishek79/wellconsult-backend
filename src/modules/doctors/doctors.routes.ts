@@ -72,9 +72,26 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
 
 router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
-    const { notifyAppointmentConfirmed } = await import('../../services/notifications');
-    const { query } = await import('../../config/database');
     await query("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    setImmediate(async () => {
+      try {
+        const { notifyAppointmentConfirmed } = await import('../../services/notifications');
+        const [apptInfo] = await query(
+          `SELECT a.appt_date, a.appt_time, a.consult_type, u.phone AS patient_phone, du.full_name AS doctor_name
+           FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users u ON u.id=p.user_id
+           JOIN doctors d ON d.id=a.doctor_id JOIN users du ON du.id=d.user_id WHERE a.id=$1`, [req.params.id]
+        ) as any[];
+        if (apptInfo) {
+          await notifyAppointmentConfirmed({
+            patientPhone: apptInfo.patient_phone,
+            doctorName: apptInfo.doctor_name,
+            date: String(apptInfo.appt_date).slice(0,10),
+            time: String(apptInfo.appt_time).slice(0,5),
+            consultType: apptInfo.consult_type,
+          });
+        }
+      } catch(e) { console.error('Notification error:', e); }
+    });
     sendSuccess(res, { message: 'Appointment confirmed' });
   } catch (e) { next(e); }
 });
