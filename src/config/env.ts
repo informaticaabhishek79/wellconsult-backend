@@ -26,7 +26,7 @@ export const env = {
   jwt: {
     accessSecret:   required('JWT_ACCESS_SECRET'),
     refreshSecret:  required('JWT_REFRESH_SECRET'),
-    accessExpires:  process.env.JWT_ACCESS_EXPIRES  || '15m',
+    accessExpires:  process.env.JWT_ACCESS_EXPIRES  || '24h',
     refreshExpires: process.env.JWT_REFRESH_EXPIRES || '30d',
   },
 
@@ -44,10 +44,10 @@ export const env = {
   },
 
   firebase: {
-  projectId:   process.env.FIREBASE_PROJECT_ID   || '',
-  privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL  || '',
-},
+    projectId:   required('FIREBASE_PROJECT_ID'),
+    privateKey:  required('FIREBASE_PRIVATE_KEY').replace(/\\n/g, '\n'),
+    clientEmail: required('FIREBASE_CLIENT_EMAIL'),
+  },
 
   smtp: {
     host:     required('SMTP_HOST'),

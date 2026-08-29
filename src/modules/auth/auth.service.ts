@@ -126,7 +126,7 @@ export const AuthService = {
     return {
       access_token:  accessToken,
       refresh_token: refreshToken,
-      expires_in:    900,
+      expires_in:    86400,
       user: { id: user.id, full_name: user.full_name, role: user.role, doctorId: doctor?.id, patientId: patient?.id },
     };
   },
@@ -161,7 +161,7 @@ export const AuthService = {
 
     await redis.setEx(`refresh:${user.id}`, 30 * 24 * 60 * 60, newRefresh);
 
-    return { access_token: newAccess, refresh_token: newRefresh, expires_in: 900 };
+    return { access_token: newAccess, refresh_token: newRefresh, expires_in: 86400 };
   },
 
   async sendOtp(userId: string, purpose: string): Promise<void> {
