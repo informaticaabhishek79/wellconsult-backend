@@ -32,8 +32,6 @@ async function sendNotification(phone: string | null | undefined, message: strin
   setImmediate(async () => {
     try { await twilioRequest(cleaned, message, 'sms'); logger.info('SMS sent', { to: cleaned }); }
     catch (err) { logger.warn('SMS failed', { error: (err as Error).message }); }
-    try { await twilioRequest(cleaned, message, 'whatsapp'); logger.info('WhatsApp sent', { to: cleaned }); }
-    catch (err) { logger.warn('WhatsApp failed', { error: (err as Error).message }); }
   });
 }
 
