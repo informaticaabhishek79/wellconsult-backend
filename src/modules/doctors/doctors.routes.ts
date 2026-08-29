@@ -76,7 +76,8 @@ router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), 
     setImmediate(async () => {
       try {
         const { notifyAppointmentConfirmed } = await import('../../services/notifications');
-        const [apptInfo] = await query(
+        const { query: q } = await import('../../config/database');
+        const [apptInfo] = await q(
           `SELECT a.appt_date, a.appt_time, a.consult_type, u.phone AS patient_phone, du.full_name AS doctor_name
            FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users u ON u.id=p.user_id
            JOIN doctors d ON d.id=a.doctor_id JOIN users du ON du.id=d.user_id WHERE a.id=$1`, [req.params.id]
