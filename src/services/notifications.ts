@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 const TWILIO_SID   = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM  = process.env.TWILIO_PHONE || '';
-const TWILIO_WA    = process.env.TWILIO_WHATSAPP || 'whatsapp:+14155238886';
+const TWILIO_WA    = process.env.TWILIO_WHATSAPP || 'whatsapp:+17372212163';
 
 async function twilioRequest(to: string, body: string, channel: 'sms' | 'whatsapp' = 'sms') {
   if (!TWILIO_SID || !TWILIO_TOKEN || !TWILIO_FROM) {
@@ -32,6 +32,8 @@ async function sendNotification(phone: string | null | undefined, message: strin
   setImmediate(async () => {
     try { await twilioRequest(cleaned, message, 'sms'); logger.info('SMS sent', { to: cleaned }); }
     catch (err) { logger.warn('SMS failed', { error: (err as Error).message }); }
+    try { await twilioRequest(cleaned, message, 'whatsapp'); logger.info('WhatsApp sent', { to: cleaned }); }
+    catch (err) { logger.warn('WhatsApp failed', { error: (err as Error).message }); }
   });
 }
 
