@@ -44,9 +44,9 @@ export const env = {
   },
 
   firebase: {
-    projectId:   required('FIREBASE_PROJECT_ID'),
-    privateKey:  required('FIREBASE_PRIVATE_KEY').replace(/\\n/g, '\n'),
-    clientEmail: required('FIREBASE_CLIENT_EMAIL'),
+    projectId:   process.env.FIREBASE_PROJECT_ID || '',
+    privateKey:  (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
   },
 
   smtp: {
