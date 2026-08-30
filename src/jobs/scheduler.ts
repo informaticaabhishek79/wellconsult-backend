@@ -151,5 +151,107 @@ export function startScheduler(): void {
     }
   });
 
+  // ── SLA Enforcement: Auto-refund if doctor doesn't confirm within 15 min ──
+  cron.schedule('*/5 * * * *', async () => { // runs every 5 minutes
+    try {
+      const rows = await query<{
+        id: string; patient_id: string; doctor_id: string;
+        patient_phone: string; doctor_name: string; appt_date: string; appt_time: string;
+      }>(
+        `SELECT a.id, a.patient_id, a.doctor_id,
+                u.phone AS patient_phone,
+                du.full_name AS doctor_name,
+                a.appt_date, a.appt_time
+         FROM appointments a
+         JOIN patients pt ON pt.id = a.patient_id
+         JOIN users u ON u.id = pt.user_id
+         JOIN doctors d ON d.id = a.doctor_id
+         JOIN users du ON du.id = d.user_id
+         WHERE a.status = 'booked'
+           AND a.created_at < NOW() - INTERVAL '15 minutes'`
+      );
+
+      for (const row of rows) {
+        // Auto-cancel and mark for refund
+        await query(
+          `UPDATE appointments SET status='cancelled', cancelled_by='system',
+           cancellation_reason='Doctor did not confirm within 15 minutes. Auto-refunded.'
+           WHERE id=$1`,
+          [row.id]
+        );
+
+        // Notify patient via SMS/WhatsApp
+        const { notifyAppointmentCancelled } = await import('../services/notifications');
+        await notifyAppointmentCancelled({
+          phone: row.patient_phone,
+          date: String(row.appt_date).slice(0, 10),
+          time: String(row.appt_time).slice(0, 5),
+          reason: 'Doctor did not confirm in time. Full refund will be processed within 5-7 business days.',
+        });
+
+        logger.info('[Scheduler] SLA breach - auto cancelled appointment', { appointmentId: row.id });
+      }
+
+      if (rows.length > 0) {
+        logger.info(`[Scheduler] SLA enforcement: ${rows.length} appointments auto-cancelled`);
+      }
+    } catch (err) {
+      logger.error('[Scheduler] SLA enforcement error', { error: (err as Error).message });
+    }
+  });
+
+  // ── SMS/WhatsApp 1-hour reminder (runs every hour) ────
+  cron.schedule('30 * * * *', async () => { // at :30 every hour
+    const now   = new Date();
+    const inOne = new Date(now.getTime() + 60 * 60 * 1000);
+    const date  = inOne.toISOString().slice(0, 10);
+    const time  = inOne.toTimeString().slice(0, 5);
+
+    try {
+      const rows = await query<{
+        appointment_id: string;
+        patient_phone: string; patient_name: string;
+        doctor_phone: string; doctor_name: string;
+        consult_type: string; appt_time: string;
+      }>(
+        `SELECT a.id AS appointment_id,
+                pu.phone AS patient_phone, pu.full_name AS patient_name,
+                du.phone AS doctor_phone, du.full_name AS doctor_name,
+                a.consult_type, a.appt_time
+         FROM appointments a
+         JOIN patients pt ON pt.id = a.patient_id
+         JOIN users pu ON pu.id = pt.user_id
+         JOIN doctors d ON d.id = a.doctor_id
+         JOIN users du ON du.id = d.user_id
+         WHERE a.appt_date = $1 AND a.appt_time = $2 AND a.status = 'confirmed'`,
+        [date, time]
+      );
+
+      for (const row of rows) {
+        const { notifyAppointmentReminder } = await import('../services/notifications');
+        // Remind patient
+        await notifyAppointmentReminder({
+          phone: row.patient_phone,
+          doctorName: row.doctor_name,
+          time: String(row.appt_time).slice(0, 5),
+          consultType: row.consult_type,
+        });
+        // Remind doctor
+        await notifyAppointmentReminder({
+          phone: row.doctor_phone,
+          doctorName: `Patient: ${row.patient_name}`,
+          time: String(row.appt_time).slice(0, 5),
+          consultType: row.consult_type,
+        });
+      }
+
+      if (rows.length > 0) {
+        logger.info(`[Scheduler] SMS reminders sent: ${rows.length} appointments`);
+      }
+    } catch (err) {
+      logger.error('[Scheduler] SMS reminder error', { error: (err as Error).message });
+    }
+  });
+
   logger.info('[Scheduler] All cron jobs registered');
 }
