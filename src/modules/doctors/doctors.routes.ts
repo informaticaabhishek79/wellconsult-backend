@@ -18,11 +18,7 @@ router.get('/online', authenticate, async (req, res, next) => {
     const onlineDoctorIds = keys.map((k: string) => k.replace('doctor:online:', ''));
     const doctors = await dbQuery(
       `SELECT d.id, u.full_name, d.medical_system, d.specialization, d.degree,
-              d.avg_rating, d.total_reviews, d.city, d.experience_years,
-              COALESCE(
-                (SELECT MIN(f.fee) FROM jsonb_array_elements(d.fees::jsonb) AS f(val)
-                 WHERE (f.val->>'fee')::int > 0), 0
-              ) AS min_fee
+              d.avg_rating, d.total_reviews, d.city, d.experience_years
        FROM doctors d
        JOIN users u ON u.id = d.user_id
        WHERE d.id = ANY($1::uuid[])
