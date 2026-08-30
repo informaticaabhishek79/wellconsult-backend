@@ -72,7 +72,7 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
 
 router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
-    const { query: confirmQ } = await import('../../config/database'); await confirmQ("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    await query("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
     setImmediate(async () => {
       try {
         const { notifyAppointmentConfirmed } = await import('../../services/notifications');
@@ -126,3 +126,29 @@ router.get('/:id', async (req, res, next) => {
 });
 
 export default router;
+
+// Get online doctors
+router.get('/online', authenticate, async (req, res, next) => {
+  try {
+    const { redis } = await import('../../config/redis');
+    const keys = await redis.keys('doctor:online:*');
+    if (keys.length === 0) { res.json({ success: true, data: [] }); return; }
+
+    const onlineDoctorIds = keys.map((k: string) => k.replace('doctor:online:', ''));
+    const doctors = await query(
+      `SELECT d.id, u.full_name, d.medical_system, d.specialization, d.degree,
+              d.avg_rating, d.total_reviews, d.city, d.experience_years,
+              COALESCE(
+                (SELECT MIN(f.fee) FROM jsonb_array_elements(d.fees::jsonb) AS f(val)
+                 WHERE (f.val->>'fee')::int > 0), 0
+              ) AS min_fee
+       FROM doctors d
+       JOIN users u ON u.id = d.user_id
+       WHERE d.id = ANY($1::uuid[])
+         AND d.profile_status = 'verified'
+         AND u.is_active = TRUE`,
+      [onlineDoctorIds]
+    );
+    res.json({ success: true, data: doctors });
+  } catch (e) { next(e); }
+});

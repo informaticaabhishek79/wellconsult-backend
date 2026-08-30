@@ -38,6 +38,62 @@ export function initSocketServer(httpServer: HttpServer) {
     const user = (socket as any).user;
     logger.info('Socket connected', { userId: user.sub, role: user.role });
 
+    // Track doctor online status
+    if (user.role === 'doctor' && user.doctorId) {
+      const doctorInfo = await queryOne<{ id: string; full_name: string; medical_system: string; avg_rating: string; city: string }>(
+        `SELECT d.id, u.full_name, d.medical_system, d.avg_rating, d.city
+         FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id=$1`,
+        [user.doctorId]
+      ).catch(() => null);
+      if (doctorInfo) {
+        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ ...doctorInfo, socketId: socket.id }));
+        io.emit('doctor_status', { doctorId: user.doctorId, status: 'online' });
+      }
+      // Refresh online status every 4 minutes
+      const heartbeat = setInterval(async () => {
+        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ socketId: socket.id })).catch(() => {});
+      }, 4 * 60 * 1000);
+      socket.on('disconnect', async () => {
+        clearInterval(heartbeat);
+        await del(`doctor:online:${user.doctorId}`).catch(() => {});
+        io.emit('doctor_status', { doctorId: user.doctorId, status: 'offline' });
+      });
+    }
+
+    // Handle instant consultation request (patient -> doctor)
+    socket.on('instant_consult_request', async ({ doctorId, patientName, specialty }: { doctorId: string; patientName: string; specialty?: string }) => {
+      try {
+        const onlineData = await get(`doctor:online:${doctorId}`);
+        if (!onlineData) { socket.emit('instant_consult_response', { status: 'offline' }); return; }
+        const doctorSocket = JSON.parse(onlineData).socketId;
+        // Send request to doctor
+        io.to(doctorSocket).emit('instant_consult_incoming', {
+          patientId: user.sub,
+          patientName,
+          requestId: `${user.sub}-${Date.now()}`,
+          specialty,
+        });
+        // Store request for 2 minutes
+        await setEx(`instant:${user.sub}:${doctorId}`, 120, JSON.stringify({ patientSocket: socket.id, doctorId }));
+        socket.emit('instant_consult_response', { status: 'pending' });
+      } catch (err) { socket.emit('instant_consult_response', { status: 'error' }); }
+    });
+
+    // Doctor responds to instant consultation request
+    socket.on('instant_consult_accept', async ({ patientId, appointmentId }: { patientId: string; appointmentId?: string }) => {
+      const key = await get(`instant:${patientId}:${user.doctorId}`);
+      if (!key) return;
+      const { patientSocket } = JSON.parse(key);
+      io.to(patientSocket).emit('instant_consult_accepted', { doctorId: user.doctorId, appointmentId });
+    });
+
+    socket.on('instant_consult_decline', async ({ patientId, suggestedTime, surgeMultiplier }: { patientId: string; suggestedTime?: string; surgeMultiplier?: number }) => {
+      const key = await get(`instant:${patientId}:${user.doctorId}`);
+      if (!key) return;
+      const { patientSocket } = JSON.parse(key);
+      io.to(patientSocket).emit('instant_consult_declined', { doctorId: user.doctorId, suggestedTime, surgeMultiplier });
+    });
+
     socket.on('join_room', async ({ appointmentId }: { appointmentId: string }) => {
       try {
         const [appt] = await query(
