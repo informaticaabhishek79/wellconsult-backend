@@ -46,7 +46,6 @@ export function initSocketServer(httpServer: HttpServer) {
         io.emit('doctor_status', { doctorId: user.doctorId, status: 'online' });
         logger.info('Doctor online', { doctorId: user.doctorId });
       } catch(e) { logger.error('Failed to set doctor online', { error: (e as Error).message }); }
-      if (true) {
       // Refresh online status every 4 minutes
       const heartbeat = setInterval(async () => {
         await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ socketId: socket.id })).catch(() => {});
