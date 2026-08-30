@@ -43,6 +43,8 @@ export function initSocketServer(httpServer: HttpServer) {
     logger.info('Socket user info', { role: user.role, doctorId: user.doctorId, sub: user.sub });
     if (user.role === 'doctor') {
       const dId = user.doctorId || user.sub;
+      // Join doctor's personal room so we can target them reliably
+      socket.join(`doctor:${dId}`);
       try {
         await setEx(`doctor:online:${dId}`, 300, JSON.stringify({ doctorId: dId, socketId: socket.id }));
         io.emit('doctor_status', { doctorId: dId, status: 'online' });
@@ -64,9 +66,9 @@ export function initSocketServer(httpServer: HttpServer) {
       try {
         const onlineData = await get(`doctor:online:${doctorId}`);
         if (!onlineData) { socket.emit('instant_consult_response', { status: 'offline' }); return; }
-        const doctorSocket = JSON.parse(onlineData).socketId;
-        // Send request to doctor
-        io.to(doctorSocket).emit('instant_consult_incoming', {
+        const parsedData = JSON.parse(onlineData);
+        // Send to doctor's personal room (more reliable than socket ID)
+        io.to(`doctor:${doctorId}`).emit('instant_consult_incoming', {
           patientId: user.sub,
           patientName,
           requestId: `${user.sub}-${Date.now()}`,
