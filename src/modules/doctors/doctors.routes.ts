@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
 import { DoctorsService } from './doctors.service';
 import { sendSuccess } from '../../utils/apiResponse';
+import { query } from '../../config/database';
 
 const router = Router();
 
