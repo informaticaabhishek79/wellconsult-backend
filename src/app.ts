@@ -23,6 +23,7 @@ import oauthRoutes from './modules/auth/oauth.routes';
 import verificationRoutes from './modules/doctors/verification.routes';
 import legalRoutes from './modules/admin/legal.routes';
 import chatRoutes from './modules/chat/chat.routes';
+import chatbotRoutes from './modules/chatbot/chatbot.routes';
 import adminDoctorsRoutes from './modules/admin/doctors.routes';
 
 const app = express();
@@ -60,6 +61,7 @@ app.use(`${base}/auth`, oauthRoutes);
 app.use(`${base}/verification`, verificationRoutes);
 app.use(`${base}/legal`, legalRoutes);
 app.use(`${base}/chat`, chatRoutes);
+app.use(`${base}/chatbot`, chatbotRoutes);
 app.use(`${base}/admin/doctors`, adminDoctorsRoutes);
 app.use(`${base}`,               apiLimiter);
 
