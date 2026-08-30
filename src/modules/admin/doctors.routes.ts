@@ -14,7 +14,7 @@ router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
       `SELECT d.id, u.full_name, u.email, u.phone, u.created_at,
               d.medical_system, d.degree, d.specialization, d.city,
               d.profile_status, d.rejection_reason, d.experience_years,
-              d.avg_rating, d.total_consultations
+              d.avg_rating, d.total_reviews, d.bio
        FROM doctors d
        JOIN users u ON u.id = d.user_id
        WHERE u.role = 'doctor'
