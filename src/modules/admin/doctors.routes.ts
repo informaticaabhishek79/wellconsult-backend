@@ -12,7 +12,7 @@ router.get('/', authenticate, authorize('admin'), async (req, res, next) => {
   try {
     const doctors = await query(
       `SELECT d.id, u.full_name, u.email, u.phone, u.created_at,
-              d.medical_system, d.degree, d.specialization, d.city, d.state,
+              d.medical_system, d.degree, d.specialization, d.city,
               d.profile_status, d.rejection_reason, d.experience_years,
               d.avg_rating, d.total_consultations
        FROM doctors d
