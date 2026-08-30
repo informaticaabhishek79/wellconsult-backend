@@ -41,15 +41,12 @@ export function initSocketServer(httpServer: HttpServer) {
 
     // Track doctor online status
     if (user.role === 'doctor' && user.doctorId) {
-      const doctorInfo = await queryOne<{ id: string; full_name: string; medical_system: string; avg_rating: string; city: string }>(
-        `SELECT d.id, u.full_name, d.medical_system, d.avg_rating, d.city
-         FROM doctors d JOIN users u ON u.id = d.user_id WHERE d.id=$1`,
-        [user.doctorId]
-      ).catch(() => null);
-      if (doctorInfo) {
-        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ ...doctorInfo, socketId: socket.id }));
+      try {
+        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ doctorId: user.doctorId, socketId: socket.id }));
         io.emit('doctor_status', { doctorId: user.doctorId, status: 'online' });
-      }
+        logger.info('Doctor online', { doctorId: user.doctorId });
+      } catch(e) { logger.error('Failed to set doctor online', { error: (e as Error).message }); }
+      if (true) {
       // Refresh online status every 4 minutes
       const heartbeat = setInterval(async () => {
         await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ socketId: socket.id })).catch(() => {});
