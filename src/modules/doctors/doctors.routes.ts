@@ -131,11 +131,12 @@ export default router;
 router.get('/online', authenticate, async (req, res, next) => {
   try {
     const { redis } = await import('../../config/redis');
+    const { query: dbQuery } = await import('../../config/database');
     const keys = await redis.keys('doctor:online:*');
     if (keys.length === 0) { res.json({ success: true, data: [] }); return; }
 
     const onlineDoctorIds = keys.map((k: string) => k.replace('doctor:online:', ''));
-    const doctors = await query(
+    const doctors = await dbQuery(
       `SELECT d.id, u.full_name, d.medical_system, d.specialization, d.degree,
               d.avg_rating, d.total_reviews, d.city, d.experience_years,
               COALESCE(

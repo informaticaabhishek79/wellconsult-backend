@@ -1,7 +1,8 @@
 import { Server as HttpServer } from 'http';
 import { Server as SocketServer, Socket } from 'socket.io';
 import { verifyAccessToken } from '../../utils/jwt';
-import { query } from '../../config/database';
+import { query, queryOne } from '../../config/database';
+import { setEx, del, get } from '../../config/redis';
 import { logger } from '../../utils/logger';
 
 let io: SocketServer;
@@ -34,7 +35,7 @@ export function initSocketServer(httpServer: HttpServer) {
     }
   });
 
-  io.on('connection', (socket: Socket) => {
+  io.on('connection', async (socket: Socket) => {
     const user = (socket as any).user;
     logger.info('Socket connected', { userId: user.sub, role: user.role });
 
