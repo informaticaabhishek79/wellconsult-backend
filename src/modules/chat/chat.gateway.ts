@@ -40,20 +40,22 @@ export function initSocketServer(httpServer: HttpServer) {
     logger.info('Socket connected', { userId: user.sub, role: user.role });
 
     // Track doctor online status
-    if (user.role === 'doctor' && user.doctorId) {
+    logger.info('Socket user info', { role: user.role, doctorId: user.doctorId, sub: user.sub });
+    if (user.role === 'doctor') {
+      const dId = user.doctorId || user.sub;
       try {
-        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ doctorId: user.doctorId, socketId: socket.id }));
-        io.emit('doctor_status', { doctorId: user.doctorId, status: 'online' });
-        logger.info('Doctor online', { doctorId: user.doctorId });
+        await setEx(`doctor:online:${dId}`, 300, JSON.stringify({ doctorId: dId, socketId: socket.id }));
+        io.emit('doctor_status', { doctorId: dId, status: 'online' });
+        logger.info('Doctor online', { doctorId: dId });
       } catch(e) { logger.error('Failed to set doctor online', { error: (e as Error).message }); }
       // Refresh online status every 4 minutes
       const heartbeat = setInterval(async () => {
-        await setEx(`doctor:online:${user.doctorId}`, 300, JSON.stringify({ socketId: socket.id })).catch(() => {});
+        await setEx(`doctor:online:${dId}`, 300, JSON.stringify({ socketId: socket.id })).catch(() => {});
       }, 4 * 60 * 1000);
       socket.on('disconnect', async () => {
         clearInterval(heartbeat);
-        await del(`doctor:online:${user.doctorId}`).catch(() => {});
-        io.emit('doctor_status', { doctorId: user.doctorId, status: 'offline' });
+        await del(`doctor:online:${dId}`).catch(() => {});
+        io.emit('doctor_status', { doctorId: dId, status: 'offline' });
       });
     }
 
