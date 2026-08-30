@@ -102,3 +102,118 @@ router.get('/:doctorId/log', authenticate, authorize('admin'), async (req, res, 
 });
 
 export default router;
+
+// ── Case Management ──────────────────────────────────────────────────────────
+
+// Get all cases for a doctor
+router.get('/:doctorId/cases', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const cases = await query(
+      `SELECT c.*, u.full_name AS admin_name,
+              (SELECT COUNT(*) FROM doctor_case_evidence e WHERE e.case_id = c.id) AS evidence_count
+       FROM doctor_cases c
+       JOIN users u ON u.id = c.admin_id
+       WHERE c.doctor_id = $1
+       ORDER BY c.created_at DESC`,
+      [req.params.doctorId]
+    );
+    sendSuccess(res, cases);
+  } catch (e) { next(e); }
+});
+
+// Create a case
+router.post('/:doctorId/cases', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { case_type, title, description, incident_date, severity } = req.body;
+    if (!case_type || !title || !description) {
+      throw new AppError(400, 'MISSING_FIELDS', 'case_type, title and description required.');
+    }
+    const [c] = await query(
+      `INSERT INTO doctor_cases (doctor_id, case_type, title, description, incident_date, severity, admin_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [req.params.doctorId, case_type, title, description, incident_date || null, severity || 'medium', req.user!.sub]
+    ) as any[];
+    sendSuccess(res, c);
+  } catch (e) { next(e); }
+});
+
+// Get evidence upload URL for a case
+router.post('/:doctorId/cases/:caseId/evidence/upload-url', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const AWS = await import('aws-sdk');
+    const r2 = new AWS.default.S3({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      region: 'auto',
+      signatureVersion: 'v4',
+    });
+    const { file_name, content_type } = req.body;
+    const key = `doctor-cases/${req.params.doctorId}/${req.params.caseId}/${Date.now()}-${file_name.replace(/[^a-zA-Z0-9.-]/g,'_')}`;
+    const upload_url = r2.getSignedUrl('putObject', {
+      Bucket: process.env.R2_BUCKET || 'onlineconsultation',
+      Key: key, ContentType: content_type, Expires: 300,
+    });
+    sendSuccess(res, { upload_url, key });
+  } catch (e) { next(e); }
+});
+
+// Save evidence metadata
+router.post('/:doctorId/cases/:caseId/evidence', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { file_key, file_name, file_size } = req.body;
+    const [ev] = await query(
+      `INSERT INTO doctor_case_evidence (case_id, file_key, file_name, file_size, uploaded_by)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [req.params.caseId, file_key, file_name, file_size || null, req.user!.sub]
+    ) as any[];
+    sendSuccess(res, ev);
+  } catch (e) { next(e); }
+});
+
+// Get evidence for a case
+router.get('/:doctorId/cases/:caseId/evidence', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const evidence = await query(
+      `SELECT e.*, u.full_name AS uploaded_by_name
+       FROM doctor_case_evidence e
+       JOIN users u ON u.id = e.uploaded_by
+       WHERE e.case_id = $1 ORDER BY e.created_at DESC`,
+      [req.params.caseId]
+    );
+    sendSuccess(res, evidence);
+  } catch (e) { next(e); }
+});
+
+// View evidence file
+router.get('/:doctorId/cases/:caseId/evidence/:evidenceId/view', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const AWS = await import('aws-sdk');
+    const r2 = new AWS.default.S3({
+      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      region: 'auto', signatureVersion: 'v4',
+    });
+    const [ev] = await query('SELECT * FROM doctor_case_evidence WHERE id=$1', [req.params.evidenceId]) as any[];
+    if (!ev) throw new AppError(404, 'NOT_FOUND', 'Evidence not found.');
+    const url = r2.getSignedUrl('getObject', {
+      Bucket: process.env.R2_BUCKET || 'onlineconsultation',
+      Key: ev.file_key, Expires: 300,
+    });
+    sendSuccess(res, { url });
+  } catch (e) { next(e); }
+});
+
+// Update case status / take action
+router.patch('/:doctorId/cases/:caseId', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { status, action_taken } = req.body;
+    const [c] = await query(
+      `UPDATE doctor_cases SET status=$1, action_taken=$2, updated_at=NOW()
+       WHERE id=$3 AND doctor_id=$4 RETURNING *`,
+      [status, action_taken || null, req.params.caseId, req.params.doctorId]
+    ) as any[];
+    sendSuccess(res, c);
+  } catch (e) { next(e); }
+});
