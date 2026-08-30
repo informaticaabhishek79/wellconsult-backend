@@ -168,7 +168,7 @@ export function startScheduler(): void {
          JOIN doctors d ON d.id = a.doctor_id
          JOIN users du ON du.id = d.user_id
          WHERE a.status = 'booked'
-           AND a.created_at < NOW() - INTERVAL '15 minutes'`
+           AND a.booked_at < NOW() - INTERVAL '15 minutes'`
       );
 
       for (const row of rows) {
