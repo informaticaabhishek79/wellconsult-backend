@@ -25,9 +25,9 @@ async function sendAppointmentEmail(params: {
   const { to, name, role, doctorName, patientName, date, time, type, isEmergency, action } = params;
 
   const subjects: Record<string, string> = {
-    booked:    isEmergency ? 'Emergency consultation booked — WellConsult' : 'Appointment confirmed — WellConsult',
-    cancelled: 'Appointment cancelled — WellConsult',
-    confirmed: 'Appointment confirmed by doctor — WellConsult',
+    booked:    isEmergency ? 'Emergency consultation booked — Deemona Doctors' : 'Appointment confirmed — Deemona Doctors',
+    cancelled: 'Appointment cancelled — Deemona Doctors',
+    confirmed: 'Appointment confirmed by doctor — Deemona Doctors',
   };
 
   const actionText: Record<string, string> = {
@@ -38,7 +38,7 @@ async function sendAppointmentEmail(params: {
 
   try {
     await resend.emails.send({
-      from: 'WellConsult <onboarding@resend.dev>',
+      from: 'Deemona Doctors <onboarding@resend.dev>',
       to,
       subject: subjects[action],
       html: `

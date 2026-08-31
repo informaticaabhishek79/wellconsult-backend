@@ -7,8 +7,8 @@ const router = Router();
 
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const BACKEND_URL          = 'https://wellconsult-backend.onrender.com';
-const FRONTEND_URL         = 'https://wellconsult-web.onrender.com';
+const BACKEND_URL          = 'https://deemona-doctors-backend.onrender.com';
+const FRONTEND_URL         = 'https://deemona-doctors-web.onrender.com';
 const JWT_SECRET           = process.env.JWT_SECRET || 'secret';
 const JWT_REFRESH_SECRET   = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret';
 

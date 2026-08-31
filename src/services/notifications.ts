@@ -55,41 +55,41 @@ async function sendNotification(phone: string | null | undefined, message: strin
 }
 
 export async function notifyAppointmentBooked(p: { doctorPhone?: string; patientName: string; date: string; time: string; consultType: string }) {
-  await sendNotification(p.doctorPhone, `WellConsult: New appointment booked!\n\nPatient: ${p.patientName}\nDate: ${p.date}\nTime: ${p.time}\nType: ${p.consultType}\n\nLog in to confirm.`);
+  await sendNotification(p.doctorPhone, `Deemona Doctors: New appointment booked!\n\nPatient: ${p.patientName}\nDate: ${p.date}\nTime: ${p.time}\nType: ${p.consultType}\n\nLog in to confirm.`);
 }
 
 export async function notifyAppointmentConfirmed(p: { patientPhone?: string; doctorName: string; date: string; time: string; consultType: string }) {
-  await sendNotification(p.patientPhone, `WellConsult: Appointment confirmed!\n\nDoctor: ${p.doctorName}\nDate: ${p.date}\nTime: ${p.time}\nType: ${p.consultType}\n\nJoin via WellConsult at the scheduled time.`);
+  await sendNotification(p.patientPhone, `Deemona Doctors: Appointment confirmed!\n\nDoctor: ${p.doctorName}\nDate: ${p.date}\nTime: ${p.time}\nType: ${p.consultType}\n\nJoin via Deemona Doctors at the scheduled time.`);
 }
 
 export async function notifyAppointmentCancelled(p: { phone?: string; date: string; time: string; reason?: string }) {
-  await sendNotification(p.phone, `WellConsult: Appointment cancelled\n\nDate: ${p.date}\nTime: ${p.time}\n${p.reason ? `Reason: ${p.reason}\n` : ''}Refund processed in 5-7 business days.`);
+  await sendNotification(p.phone, `Deemona Doctors: Appointment cancelled\n\nDate: ${p.date}\nTime: ${p.time}\n${p.reason ? `Reason: ${p.reason}\n` : ''}Refund processed in 5-7 business days.`);
 }
 
 export async function notifyAppointmentReminder(p: { phone?: string; doctorName: string; time: string; consultType: string }) {
-  await sendNotification(p.phone, `WellConsult Reminder: Consultation in 1 hour!\n\nDoctor: ${p.doctorName}\nTime: ${p.time}\nType: ${p.consultType}\n\nOpen WellConsult to join.`);
+  await sendNotification(p.phone, `Deemona Doctors Reminder: Consultation in 1 hour!\n\nDoctor: ${p.doctorName}\nTime: ${p.time}\nType: ${p.consultType}\n\nOpen Deemona Doctors to join.`);
 }
 
 export async function notifyPrescriptionIssued(p: { patientPhone?: string; doctorName: string; medicineCount: number }) {
-  await sendNotification(p.patientPhone, `WellConsult: New prescription issued\n\nDr. ${p.doctorName} issued a prescription with ${p.medicineCount} medicine(s).\n\nView in WellConsult -> Prescriptions.`);
+  await sendNotification(p.patientPhone, `Deemona Doctors: New prescription issued\n\nDr. ${p.doctorName} issued a prescription with ${p.medicineCount} medicine(s).\n\nView in Deemona Doctors -> Prescriptions.`);
 }
 
 export async function notifyVerificationApproved(p: { doctorPhone?: string; doctorName: string }) {
-  await sendNotification(p.doctorPhone, `WellConsult: Verification approved!\n\nCongratulations ${p.doctorName}! Your profile is now live and visible to patients.`);
+  await sendNotification(p.doctorPhone, `Deemona Doctors: Verification approved!\n\nCongratulations ${p.doctorName}! Your profile is now live and visible to patients.`);
 }
 
 export async function notifyVerificationRejected(p: { doctorPhone?: string; doctorName: string; reason?: string }) {
-  await sendNotification(p.doctorPhone, `WellConsult: Verification update\n\nDear ${p.doctorName}, verification could not be approved.\n${p.reason ? `Reason: ${p.reason}\n` : ''}Please re-upload documents.`);
+  await sendNotification(p.doctorPhone, `Deemona Doctors: Verification update\n\nDear ${p.doctorName}, verification could not be approved.\n${p.reason ? `Reason: ${p.reason}\n` : ''}Please re-upload documents.`);
 }
 
 export async function notifyFollowUpReminder(p: { patientPhone?: string; patientName: string; doctorName: string }) {
-  await sendNotification(p.patientPhone, `WellConsult Follow-up Reminder\n\nDear ${p.patientName}, time for your follow-up with Dr. ${p.doctorName}.\n\nBook at WellConsult.`);
+  await sendNotification(p.patientPhone, `Deemona Doctors Follow-up Reminder\n\nDear ${p.patientName}, time for your follow-up with Dr. ${p.doctorName}.\n\nBook at Deemona Doctors.`);
 }
 
 export async function notifyNewQuestion(p: { doctorPhone?: string; patientName: string }) {
-  await sendNotification(p.doctorPhone, `WellConsult: New question from ${p.patientName}\n\nLog in to respond within 15 minutes.`);
+  await sendNotification(p.doctorPhone, `Deemona Doctors: New question from ${p.patientName}\n\nLog in to respond within 15 minutes.`);
 }
 
 export async function notifyQuestionAnswered(p: { patientPhone?: string; doctorName: string }) {
-  await sendNotification(p.patientPhone, `WellConsult: Dr. ${p.doctorName} answered your question.\n\nView in WellConsult -> Ask a Doctor.`);
+  await sendNotification(p.patientPhone, `Deemona Doctors: Dr. ${p.doctorName} answered your question.\n\nView in Deemona Doctors -> Ask a Doctor.`);
 }

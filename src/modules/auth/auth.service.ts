@@ -16,11 +16,11 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
     return;
   }
   const subject = purpose === 'password_reset'
-    ? 'Reset your WellConsult password'
-    : 'Verify your WellConsult account';
+    ? 'Reset your Deemona Doctors password'
+    : 'Verify your Deemona Doctors account';
   try {
     await resend.emails.send({
-      from: 'WellConsult <onboarding@resend.dev>',
+      from: 'Deemona Doctors <onboarding@resend.dev>',
       to:   toEmail,
       subject,
       html: `
@@ -32,7 +32,7 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
             ${purpose === 'password_reset' ? 'Reset your password' : 'Verify your account'}
           </h2>
           <p style="color:#73726C;font-size:15px;line-height:1.6;margin:0 0 24px">
-            Hi ${toName}, use the code below to ${purpose === 'password_reset' ? 'reset your password' : 'verify your WellConsult account'}.
+            Hi ${toName}, use the code below to ${purpose === 'password_reset' ? 'reset your password' : 'verify your Deemona Doctors account'}.
           </p>
           <div style="background:#E6F4F1;border-radius:12px;padding:24px;text-align:center;margin-bottom:24px">
             <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0A7B6C">${otp}</div>

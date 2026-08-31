@@ -44,15 +44,15 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
       [user.id, token]
     );
 
-    const resetUrl = `https://wellconsult-web.onrender.com?reset_token=${token}&user_id=${user.id}`;
+    const resetUrl = `https://deemona-doctors-web.onrender.com?reset_token=${token}&user_id=${user.id}`;
     const resend = new Resend(process.env.RESEND_API_KEY || '');
 
     setImmediate(async () => {
       try {
         await resend.emails.send({
-          from: 'WellConsult <onboarding@resend.dev>',
+          from: 'Deemona Doctors <onboarding@resend.dev>',
           to: email,
-          subject: 'Reset your WellConsult password',
+          subject: 'Reset your Deemona Doctors password',
           html: [
             '<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff">',
             '<div style="margin-bottom:24px"><span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span></div>',
@@ -61,7 +61,7 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
             '<a href="' + resetUrl + '" style="display:block;background:#0A7B6C;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:700;font-size:15px;text-align:center;margin-bottom:24px">Reset my password</a>',
             '<p style="color:#A8A69E;font-size:13px">If you did not request this, you can safely ignore this email.</p>',
             '<hr style="border:none;border-top:1px solid #E0DDD5;margin:24px 0">',
-            '<p style="color:#A8A69E;font-size:12px;text-align:center">WellConsult — Holistic healthcare, digitally</p>',
+            '<p style="color:#A8A69E;font-size:12px;text-align:center">Deemona Doctors — Holistic healthcare, digitally</p>',
             '</div>',
           ].join(''),
         });

@@ -54,7 +54,7 @@ export const env = {
     port:     parseInt(process.env.SMTP_PORT || '587', 10),
     user:     required('SMTP_USER'),
     pass:     required('SMTP_PASS'),
-    from:     process.env.EMAIL_FROM || 'noreply@wellconsult.in',
+    from:     process.env.EMAIL_FROM || 'noreply@deemona-doctors.in',
   },
 
   twilio: {

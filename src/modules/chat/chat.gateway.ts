@@ -11,8 +11,8 @@ export function initSocketServer(httpServer: HttpServer) {
   io = new SocketServer(httpServer, {
     cors: {
       origin: [
-        'https://wellconsult-web.onrender.com',
-        'https://wellconsult-frontend.onrender.com',
+        'https://deemona-doctors-web.onrender.com',
+        'https://deemona-doctors-frontend.onrender.com',
         'http://localhost:3000',
         'http://localhost:8081',
       ],

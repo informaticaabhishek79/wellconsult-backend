@@ -16,7 +16,7 @@ async function bootstrap(): Promise<void> {
     initSocketServer(server);
 
     server.listen(env.PORT, () => {
-      logger.info(`WellConsult API running`, {
+      logger.info(`Deemona Doctors API running`, {
         port: env.PORT,
         env:  env.NODE_ENV,
         url:  `http://localhost:${env.PORT}/api/${env.API_VERSION}`,

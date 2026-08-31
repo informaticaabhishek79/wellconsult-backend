@@ -81,7 +81,7 @@ router.get('/:id/session-token', async (req, res, next) => {
   try {
     sendSuccess(res, {
       provider: 'daily.co',
-      room_url:  `https://wellconsult.daily.co/session-${req.params.id}`,
+      room_url:  `https://deemona-doctors.daily.co/session-${req.params.id}`,
       token:     `dev_token_${Date.now()}`,
       expires_at: new Date(Date.now() + 3600000).toISOString(),
     });
