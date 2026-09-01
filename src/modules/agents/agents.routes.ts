@@ -208,6 +208,19 @@ router.post('/:agentId/terminate', authenticate, authorize('admin'), async (req,
   } catch (e) { next(e); }
 });
 
+// Assign location ID
+router.post('/:agentId/assign-location', authenticate, authorize('admin'), async (req, res, next) => {
+  try {
+    const { location_id, location_name } = req.body;
+    if (!location_id) throw new AppError(400, 'MISSING_FIELDS', 'location_id required.');
+    await query(
+      `UPDATE marketing_agents SET location_id=$1, location_name=$2 WHERE id=$3`,
+      [location_id, location_name || null, req.params.agentId]
+    );
+    sendSuccess(res, { message: 'Location assigned successfully.' });
+  } catch (e) { next(e); }
+});
+
 // Reinstate agent
 router.post('/:agentId/reinstate', authenticate, authorize('admin'), async (req, res, next) => {
   try {
