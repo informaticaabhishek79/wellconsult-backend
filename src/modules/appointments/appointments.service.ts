@@ -99,6 +99,20 @@ export const AppointmentsService = {
       );
     }
 
+    // Fallback to platform_fees if doctor hasn't set their own fee
+    if (!fee) {
+      const doctor = await queryOne<{ medical_system: string }>(
+        'SELECT medical_system FROM doctors WHERE id=$1', [body.doctor_id]
+      );
+      if (doctor) {
+        const platformFee = await queryOne<{ fee: number }>(
+          'SELECT fee FROM platform_fees WHERE medical_system=$1 AND consult_type=$2',
+          [doctor.medical_system, body.consult_type || 'video']
+        );
+        if (platformFee) fee = { fee_amount: platformFee.fee, currency: 'INR' };
+      }
+    }
+
     if (!fee) throw new AppError(400, 'NO_FEE_SET', 'Doctor has not set a fee for this consultation type.');
 
     const feeAmount = body.is_emergency ? Math.round(fee.fee_amount * 1.5) : fee.fee_amount;
