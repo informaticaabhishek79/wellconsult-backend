@@ -150,4 +150,56 @@ router.get('/:id', async (req, res, next) => {
   catch (e) { next(e); }
 });
 
+// Doctor earnings stats
+router.get('/me/earnings', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { period = 'month' } = req.query;
+    let dateFilter = '';
+    if (period === 'week') dateFilter = "AND a.appt_date >= CURRENT_DATE - INTERVAL '7 days'";
+    else if (period === 'month') dateFilter = "AND a.appt_date >= DATE_TRUNC('month', CURRENT_DATE)";
+    else if (period === 'year') dateFilter = "AND a.appt_date >= DATE_TRUNC('year', CURRENT_DATE)";
+
+    const [stats] = await query(
+      `SELECT
+        COUNT(*) AS total_consultations,
+        COUNT(*) FILTER (WHERE a.status = 'completed') AS completed_consultations,
+        COALESCE(SUM(CASE WHEN a.status = 'completed' THEN COALESCE(a.fee, 0) ELSE 0 END), 0) AS total_earnings,
+        COALESCE(SUM(CASE WHEN a.status = 'confirmed' THEN COALESCE(a.fee, 0) ELSE 0 END), 0) AS pending_earnings,
+        (SELECT avg_rating FROM doctors WHERE user_id=$1) AS avg_rating
+       FROM appointments a
+       JOIN doctors d ON d.id = a.doctor_id
+       WHERE d.user_id=$1 ${dateFilter}`,
+      [req.user!.sub]
+    ) as any[];
+
+    sendSuccess(res, stats);
+  } catch (e) { next(e); }
+});
+
+// Doctor earnings history
+router.get('/me/earnings/history', authenticate, authorize('doctor'), async (req, res, next) => {
+  try {
+    const { period = 'month' } = req.query;
+    let dateFilter = '';
+    if (period === 'week') dateFilter = "AND a.appt_date >= CURRENT_DATE - INTERVAL '7 days'";
+    else if (period === 'month') dateFilter = "AND a.appt_date >= DATE_TRUNC('month', CURRENT_DATE)";
+    else if (period === 'year') dateFilter = "AND a.appt_date >= DATE_TRUNC('year', CURRENT_DATE)";
+
+    const history = await query(
+      `SELECT a.id, a.appt_date, a.appt_time, a.status, a.consult_type,
+              COALESCE(a.fee, 0) AS fee,
+              pu.full_name AS patient_name
+       FROM appointments a
+       JOIN doctors d ON d.id = a.doctor_id
+       JOIN patients pt ON pt.id = a.patient_id
+       JOIN users pu ON pu.id = pt.user_id
+       WHERE d.user_id=$1 ${dateFilter}
+       ORDER BY a.appt_date DESC LIMIT 50`,
+      [req.user!.sub]
+    );
+
+    sendSuccess(res, history);
+  } catch (e) { next(e); }
+});
+
 export default router;
