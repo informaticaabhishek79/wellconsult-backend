@@ -63,7 +63,7 @@ router.get('/fees/calculate', authenticate, async (req, res, next) => {
       [doctor.medical_system, consult_type as string]
     );
 
-    let fee = feeRow?.fee || 0;
+    let fee = parseFloat(String(feeRow?.fee || 0));
 
     // Apply subscription discount
     const sub = await queryOne<{ plan: string; status: string }>(
@@ -110,15 +110,15 @@ router.post('/create-order', authenticate, async (req, res, next) => {
       `SELECT fee FROM platform_fees WHERE medical_system=$1 AND consult_type=$2`,
       [appt.medical_system, appt.consult_type]
     );
-    let fee = feeRow?.fee || 0;
+    let fee = parseFloat(String(feeRow?.fee || 0));
 
     // Apply subscription discount
     const sub = await queryOne<{ plan: string }>(
       `SELECT plan FROM subscriptions WHERE user_id=$1 AND status='active'`,
       [req.user!.sub]
     );
-    if (sub?.plan === 'gold') fee = Math.round(fee * 0.9);
-    if (sub?.plan === 'diamond') fee = Math.round(fee * 0.75);
+    if (sub?.plan === 'gold') fee = Math.round(parseFloat(String(fee)) * 0.9);
+    if (sub?.plan === 'diamond') fee = Math.round(parseFloat(String(fee)) * 0.75);
 
     if (fee === 0) {
       // Free consultation - just confirm
@@ -129,7 +129,7 @@ router.post('/create-order', authenticate, async (req, res, next) => {
 
     // Create Razorpay order
     const order = await (razorpay.orders as any).create({
-      amount: fee * 100, // paise
+      amount: Math.round(fee * 100), // paise as integer
       currency: 'INR',
       receipt: `appt_${appointment_id.slice(0,12)}`,
       notes: { appointment_id, user_id: req.user!.sub },
