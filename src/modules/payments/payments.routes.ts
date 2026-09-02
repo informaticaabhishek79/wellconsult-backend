@@ -143,9 +143,9 @@ router.post('/create-order', authenticate, async (req, res, next) => {
 
     // Save payment record - use existing table structure
     await query(
-      `INSERT INTO payments (appointment_id, patient_id, doctor_id, amount, razorpay_order_id, status)
-       VALUES ($1,$2,$3,$4,$5,'pending')
-       ON CONFLICT (appointment_id) DO UPDATE SET razorpay_order_id=$5, amount=$4, status='pending'`,
+      `INSERT INTO payments (appointment_id, patient_id, doctor_id, amount, currency, gateway, razorpay_order_id)
+       VALUES ($1,$2,$3,$4,'INR','razorpay',$5)
+       ON CONFLICT (appointment_id) DO UPDATE SET razorpay_order_id=$5, amount=$4`,
       [appointment_id, apptForPayment?.patient_id, apptForPayment?.doctor_id, fee, order.id]
     );
 
