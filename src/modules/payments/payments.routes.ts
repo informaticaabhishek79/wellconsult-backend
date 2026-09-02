@@ -86,6 +86,28 @@ router.get('/fees/calculate', authenticate, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// Create direct order without appointment (payment first flow)
+router.post('/create-direct-order', authenticate, async (req, res, next) => {
+  try {
+    const { amount, doctor_id, consult_type } = req.body;
+    if (!amount || !doctor_id) throw new AppError(400, 'MISSING_FIELDS', 'amount and doctor_id required.');
+    const user = await queryOne<{ email: string; full_name: string; phone: string }>(
+      'SELECT email, full_name, phone FROM users WHERE id=$1', [req.user!.sub]
+    );
+    const order = await (razorpay.orders as any).create({
+      amount: Math.round(parseFloat(String(amount)) * 100),
+      currency: 'INR',
+      receipt: `appt_${Date.now()}`,
+      notes: { user_id: req.user!.sub, doctor_id, consult_type },
+    });
+    sendSuccess(res, {
+      order_id: order.id, amount: order.amount,
+      razorpay_key: process.env.RAZORPAY_KEY_ID,
+      patient_name: user?.full_name, email: user?.email, phone: user?.phone,
+    });
+  } catch (e) { next(e); }
+});
+
 // ── Consultation Payment ──────────────────────────────────────────────────
 
 // Create payment order for appointment
