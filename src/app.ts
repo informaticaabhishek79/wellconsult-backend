@@ -26,6 +26,7 @@ import chatRoutes from './modules/chat/chat.routes';
 import chatbotRoutes from './modules/chatbot/chatbot.routes';
 import agentsRoutes from './modules/agents/agents.routes';
 import subscriptionRoutes from './modules/subscriptions/subscriptions.routes';
+import paymentRoutes from './modules/payments/payments.routes';
 import adminDoctorsRoutes from './modules/admin/doctors.routes';
 
 const app = express();
@@ -66,6 +67,7 @@ app.use(`${base}/chat`, chatRoutes);
 app.use(`${base}/chatbot`, chatbotRoutes);
 app.use(`${base}/agents`, agentsRoutes);
 app.use(`${base}/subscriptions`, subscriptionRoutes);
+app.use(`${base}/payments`, paymentRoutes);
 app.use(`${base}/admin/doctors`, adminDoctorsRoutes);
 app.use(`${base}`,               apiLimiter);
 
