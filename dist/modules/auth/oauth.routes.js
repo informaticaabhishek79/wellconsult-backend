@@ -1,0 +1,133 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const database_1 = require("../../config/database");
+const logger_1 = require("../../utils/logger");
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const router = (0, express_1.Router)();
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+const BACKEND_URL = 'https://deemona-doctors-backend.onrender.com';
+const FRONTEND_URL = 'https://deemona-doctors-web.onrender.com';
+const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret';
+// Temporary session store (in-memory, expires in 5 min)
+const oauthSessions = new Map();
+// Step 1: Redirect to Google
+router.get('/google', (req, res) => {
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: `${BACKEND_URL}/api/v1/auth/google/callback`,
+        response_type: 'code',
+        scope: 'openid email profile',
+        access_type: 'offline',
+        prompt: 'select_account',
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+});
+// Step 2: Google callback - store session, redirect with short code
+router.get('/google/callback', async (req, res) => {
+    try {
+        const { code } = req.query;
+        if (!code) {
+            res.redirect(`${FRONTEND_URL}?oauth_error=no_code`);
+            return;
+        }
+        // Exchange code for tokens
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                code: code,
+                client_id: GOOGLE_CLIENT_ID,
+                client_secret: GOOGLE_CLIENT_SECRET,
+                redirect_uri: `${BACKEND_URL}/api/v1/auth/google/callback`,
+                grant_type: 'authorization_code',
+            }),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenData.access_token) {
+            res.redirect(`${FRONTEND_URL}?oauth_error=token_failed`);
+            return;
+        }
+        // Get user info from Google
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        const googleUser = await userRes.json();
+        if (!googleUser.email) {
+            res.redirect(`${FRONTEND_URL}?oauth_error=no_email`);
+            return;
+        }
+        // Find or create user
+        let user = await (0, database_1.queryOne)('SELECT id, full_name, role, is_active FROM users WHERE email=$1', [googleUser.email]);
+        if (!user) {
+            const [newUser] = await (0, database_1.query)(`INSERT INTO users (full_name, email, password_hash, role, is_verified, is_active, avatar_url)
+         VALUES ($1, $2, 'GOOGLE_OAUTH', 'patient', TRUE, TRUE, $3) RETURNING id, full_name, role`, [googleUser.name || googleUser.email.split('@')[0], googleUser.email, googleUser.picture || null]);
+            await (0, database_1.query)('INSERT INTO patients (user_id) VALUES ($1)', [newUser.id]);
+            user = { ...newUser, is_active: true };
+        }
+        if (!user.is_active) {
+            res.redirect(`${FRONTEND_URL}?oauth_error=account_disabled`);
+            return;
+        }
+        // Get patient/doctor ID
+        let patientId = null, doctorId = null;
+        if (user.role === 'patient') {
+            const p = await (0, database_1.queryOne)('SELECT id FROM patients WHERE user_id=$1', [user.id]);
+            patientId = p?.id;
+        }
+        else if (user.role === 'doctor') {
+            const d = await (0, database_1.queryOne)('SELECT id FROM doctors WHERE user_id=$1', [user.id]);
+            doctorId = d?.id;
+        }
+        // Generate JWT tokens
+        const accessToken = jsonwebtoken_1.default.sign({ sub: user.id, role: user.role, patientId, doctorId }, JWT_SECRET, { expiresIn: '15m' });
+        const refreshToken = jsonwebtoken_1.default.sign({ sub: user.id }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+        // Store in memory with short code
+        const sessionCode = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+        oauthSessions.set(sessionCode, {
+            accessToken, refreshToken,
+            user: { id: user.id, full_name: user.full_name, role: user.role, patientId, doctorId },
+            expires: Date.now() + 5 * 60 * 1000,
+        });
+        // Cleanup old sessions
+        for (const [k, v] of oauthSessions) {
+            if (v.expires < Date.now())
+                oauthSessions.delete(k);
+        }
+        // Set code in cookie then redirect - cookie persists across redirect
+        res.cookie('oauth_code', sessionCode, {
+            maxAge: 5 * 60 * 1000, // 5 minutes
+            httpOnly: false, // Frontend needs to read it
+            secure: true,
+            sameSite: 'none', // Cross-domain
+            domain: '.onrender.com', // Share across *.onrender.com
+        });
+        res.redirect(FRONTEND_URL);
+    }
+    catch (err) {
+        logger_1.logger.error('Google OAuth error', { error: err.message });
+        res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
+    }
+});
+// Step 3: Frontend exchanges code for tokens
+router.post('/google/token', async (req, res) => {
+    const { code } = req.body;
+    if (!code) {
+        res.status(400).json({ success: false, error: { message: 'No code provided' } });
+        return;
+    }
+    const session = oauthSessions.get(code);
+    if (!session || session.expires < Date.now()) {
+        res.status(400).json({ success: false, error: { message: 'Invalid or expired OAuth code' } });
+        return;
+    }
+    oauthSessions.delete(code);
+    res.json({ success: true, data: session });
+});
+exports.default = router;
+//# sourceMappingURL=oauth.routes.js.map
