@@ -7,7 +7,7 @@ export const registerSchema = z.object({
     phone:     z.string().regex(/^\+?[1-9]\d{9,14}$/).optional(),
     password:  z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/,
       'Password must have uppercase, lowercase, number, and special character.'),
-    role:      z.enum(['patient', 'doctor']),
+    role:      z.enum(['patient', 'doctor', 'agent']),
   }),
 });
 

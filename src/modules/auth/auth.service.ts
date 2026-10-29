@@ -19,14 +19,14 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
     ? 'Reset your Deemona Doctors password'
     : 'Verify your Deemona Doctors account';
   try {
-    await resend.emails.send({
-      from: 'Deemona Doctors <onboarding@resend.dev>',
+    const sendRes = await resend.emails.send({
+      from: 'Deemona Doctors <noreply@mail.deemona.com>',
       to:   toEmail,
       subject,
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff">
           <div style="margin-bottom:24px">
-            <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span>
+            <span style="font-size:20px;font-weight:800;color:#1A1A18">Deemona <span style="color:#0A7B6C">Doctors</span></span>
           </div>
           <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
             ${purpose === 'password_reset' ? 'Reset your password' : 'Verify your account'}
@@ -42,6 +42,7 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
         </div>
       `,
     });
+    if (sendRes && sendRes.error) logger.error('Resend send failed', { error: sendRes.error });
     logger.info('OTP email sent via Resend', { to: toEmail, purpose });
   } catch (err) {
     logger.error('Resend email failed', { error: (err as Error).message });
@@ -51,10 +52,10 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
 export const AuthService = {
   async register(body: {
     full_name: string; email: string; phone?: string;
-    password: string; role: 'patient' | 'doctor';
+    password: string; role: 'patient' | 'doctor' | 'agent';
   }): Promise<{ user_id: string; role: string }> {
     const exists = await queryOne<User>(
-      'SELECT id FROM users WHERE email = $1', [body.email]
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [body.email.trim()]
     );
     if (exists) throw new AppError(409, 'EMAIL_TAKEN', 'An account with this email already exists.');
 
@@ -63,8 +64,8 @@ export const AuthService = {
     const result = await withTransaction(async (client) => {
       const [user] = await client.query<User>(
         `INSERT INTO users (full_name, email, phone, password_hash, role, is_verified)
-         VALUES ($1, $2, $3, $4, $5, TRUE) RETURNING id, role`,
-        [body.full_name, body.email, body.phone, password_hash, body.role]
+         VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, role`,
+        [body.full_name, body.email.trim().toLowerCase(), body.phone, password_hash, body.role]
       ).then(r => r.rows);
 
       // Create profile stub
@@ -74,7 +75,7 @@ export const AuthService = {
            VALUES ($1, 'allopathy', '', '', '', 0, '') ON CONFLICT DO NOTHING`,
           [user.id]
         );
-      } else {
+      } else if (body.role !== 'agent') {
         await client.query(
           'INSERT INTO patients (user_id) VALUES ($1) ON CONFLICT DO NOTHING',
           [user.id]
@@ -97,14 +98,15 @@ export const AuthService = {
 
   async login(email: string, password: string) {
     const user = await queryOne<User & { password_hash: string }>(
-      'SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE email = $1',
-      [email]
+      'SELECT id, full_name, email, role, password_hash, is_active, is_verified FROM users WHERE LOWER(email) = LOWER($1)',
+      [String(email).trim()]
     );
     if (!user) throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.');
     if (!user.is_active) throw new AppError(403, 'ACCOUNT_DISABLED', 'Your account has been suspended.');
 
     const valid = await comparePassword(password, user.password_hash);
     if (!valid) throw new AppError(401, 'INVALID_CREDENTIALS', 'Email or password is incorrect.');
+    if (!user.is_verified) throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Please verify your email before signing in. Enter the code we emailed you.');
 
     // Fetch linked doctor/patient id
     const [doctor] = await query<{ id: string }>('SELECT id FROM doctors WHERE user_id = $1', [user.id]);

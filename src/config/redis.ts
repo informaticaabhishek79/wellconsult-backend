@@ -14,7 +14,12 @@ export const redis = createClient({
   },
 });
 
-redis.on('error', (err) => logger.error('Redis error', { error: err.message }));
+redis.on('error', (err) => {
+  logger.error('Redis error', { error: err.message });
+  if (!redis.isOpen) {
+    redis.connect().catch(() => {});
+  }
+});
 redis.on('connect', () => logger.info('Redis connected'));
 
 export async function connectRedis(): Promise<void> {

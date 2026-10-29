@@ -1,0 +1,48 @@
+name: Deploy Backend to MilesWeb
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    name: Build & Deploy Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Compile TypeScript
+        run: npx tsc --skipLibCheck
+
+      - name: Upload compiled code
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: 103.86.176.105
+          username: doctors_1
+          password: ${{ secrets.MILESWEB_SSH_PASSWORD }}
+          port: 22
+          source: "dist/*"
+          target: "/var/www/7bf7f1ad-5319-485f-86be-69e0ecf87982/deemona-backend/dist/"
+          strip_components: 1
+
+      - name: Ask the app to restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 103.86.176.105
+          username: doctors_1
+          password: ${{ secrets.MILESWEB_SSH_PASSWORD }}
+          port: 22
+          script: |
+            mkdir -p ~/deemona-backend/tmp
+            touch ~/deemona-backend/tmp/restart.txt
+            echo "Uploaded. If the app does not restart by itself, restart it in mPanel."

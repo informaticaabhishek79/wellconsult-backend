@@ -14,9 +14,9 @@ const razorpay = new Razorpay({
 });
 
 const PLANS: Record<string, { razorpay_plan_id: string; price: number; name: string }> = {
-  free:    { razorpay_plan_id: 'plan_TX3yZM24fQRxto', price: 0,  name: 'Free' },
-  gold:    { razorpay_plan_id: 'plan_TX3yu96OKfUKcu', price: 25, name: 'Gold' },
-  diamond: { razorpay_plan_id: 'plan_TX3zKc3eeJ8bYh', price: 50, name: 'Diamond' },
+  free:    { razorpay_plan_id: 'plan_free', price: 0,  name: 'Free' },
+  gold:    { razorpay_plan_id: 'plan_TYlHVYWgYgtQDx', price: 25, name: 'Gold' },
+  diamond: { razorpay_plan_id: 'plan_TYlHuB6xSoGodB', price: 50, name: 'Diamond' },
 };
 
 // Get current subscription

@@ -38,7 +38,7 @@ async function sendAppointmentEmail(params: {
 
   try {
     await resend.emails.send({
-      from: 'Deemona Doctors <onboarding@resend.dev>',
+      from: 'Deemona Doctors <noreply@mail.deemona.com>',
       to,
       subject: subjects[action],
       html: `

@@ -49,7 +49,7 @@ app.get('/health', (_req, res) =>
   res.json({ status: 'ok', version: env.API_VERSION, env: env.NODE_ENV })
 );
 
-const base = `/api/${env.API_VERSION}`;
+const base = `${process.env.API_PREFIX ?? '/api'}/${env.API_VERSION}`;
 app.use(`${base}/auth`,          authRoutes);
 app.use(`${base}/doctors`,       doctorsRoutes);
 app.use(`${base}/appointments`,  appointmentsRoutes);

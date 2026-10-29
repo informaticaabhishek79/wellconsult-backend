@@ -4,6 +4,8 @@ import { authenticate } from '../../middleware/authenticate';
 import { authLimiter, otpLimiter } from '../../middleware/rateLimiter';
 import { validate } from '../../middleware/validate';
 import { registerSchema, loginSchema, otpSendSchema, otpVerifySchema } from './auth.schema';
+import { query } from '../../config/database';
+import { AuthService } from './auth.service';
 
 const router = Router();
 
@@ -15,6 +17,36 @@ router.post('/otp/send',   otpLimiter, validate(otpSendSchema),   AuthController
 router.post('/otp/verify', otpLimiter, validate(otpVerifySchema),  AuthController.verifyOtp);
 
 // Forgot password
+router.post('/verify-email', otpLimiter, async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').trim();
+    const code = String(req.body.otp_code || '').trim();
+    const bad = () => res.status(400).json({ success: false, error: { code: 'INVALID_OTP', message: 'The code is invalid or has expired.' } });
+    if (!email || !/^\d{6}$/.test(code)) return bad();
+    const [user] = await query<{ id: string }>('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if (!user) return bad();
+    const [row] = await query<{ id: string }>(
+      `SELECT id FROM otp_verifications
+         WHERE user_id = $1 AND otp_code = $2 AND purpose = 'email' AND expires_at > NOW() AND used = FALSE
+         ORDER BY created_at DESC LIMIT 1`, [user.id, code]);
+    if (!row) return bad();
+    await query('UPDATE otp_verifications SET used = TRUE WHERE id = $1', [row.id]);
+    await query('UPDATE users SET is_verified = TRUE WHERE id = $1', [user.id]);
+    res.json({ success: true, data: { message: 'Email verified.' } });
+  } catch (e) { next(e); }
+});
+
+router.post('/resend-verification', otpLimiter, async (req, res, next) => {
+  try {
+    const email = String(req.body.email || '').trim();
+    if (email) {
+      const [user] = await query<{ id: string; is_verified: boolean }>('SELECT id, is_verified FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+      if (user && !user.is_verified) await AuthService.sendOtp(user.id, 'email');
+    }
+    res.json({ success: true, data: { message: 'If the account needs verification, a new code has been sent.' } });
+  } catch (e) { next(e); }
+});
+
 router.post('/forgot-password', authLimiter, async (req, res, next) => {
   try {
     const { query, queryOne } = await import('../../config/database');
@@ -50,7 +82,7 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
     setImmediate(async () => {
       try {
         await resend.emails.send({
-          from: 'Deemona Doctors <onboarding@resend.dev>',
+          from: 'Deemona Doctors <noreply@mail.deemona.com>',
           to: email,
           subject: 'Reset your Deemona Doctors password',
           html: [
