@@ -3,6 +3,9 @@ import { authenticate } from '../../middleware/authenticate';
 import { sendSuccess } from '../../utils/apiResponse';
 import { AppError } from '../../middleware/errorHandler';
 import Anthropic from '@anthropic-ai/sdk';
+import rateLimit from 'express-rate-limit';
+import { authorize } from '../../middleware/authorize';
+import { runVeda, confirmProposal } from './veda.agent';
 
 const router = Router();
 
@@ -56,6 +59,33 @@ router.post('/chat', authenticate, async (req, res, next) => {
   } catch (e: any) {
     next(e);
   }
+});
+
+// ── Veda agent: thinks (triage, precautions) and acts (doctors, slots, booking proposals) ──
+const agentLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, max: 40, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req: any) => req.user?.sub || req.ip,
+  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many messages. Please wait a few minutes.' } },
+});
+
+router.post('/agent', authenticate, agentLimiter, async (req, res, next) => {
+  try {
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new AppError(400, 'MISSING_FIELDS', 'messages array required.');
+    }
+    const result = await runVeda(req.user!.sub, req.user!.role, messages);
+    sendSuccess(res, result);
+  } catch (e) { next(e); }
+});
+
+// The ONLY way a booking proposed by Veda is executed: the patient taps Confirm.
+router.post('/confirm-booking', authenticate, authorize('patient'), async (req, res, next) => {
+  try {
+    const { proposal_id } = req.body;
+    if (!proposal_id) throw new AppError(400, 'MISSING_FIELDS', 'proposal_id required.');
+    sendSuccess(res, await confirmProposal(req.user!.sub, String(proposal_id)));
+  } catch (e) { next(e); }
 });
 
 export default router;
