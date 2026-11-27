@@ -6,10 +6,12 @@ import { connectRedis } from './config/redis';
 import { startScheduler } from './jobs/scheduler';
 import { logger } from './utils/logger';
 import { initSocketServer } from './modules/chat/chat.gateway';
+import { ensureSchema } from './config/schema';
 
 async function bootstrap(): Promise<void> {
   try {
     await connectDB();
+    await ensureSchema();
     await connectRedis();
 
     const server = http.createServer(app);

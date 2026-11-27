@@ -4,6 +4,7 @@ import { authorize } from '../../middleware/authorize';
 import { query } from '../../config/database';
 import { sendSuccess } from '../../utils/apiResponse';
 import { AppError } from '../../middleware/errorHandler';
+import { EFFECTIVE_PCT_SQL } from '../../config/schema';
 
 const router = Router();
 router.use(authenticate, authorize('doctor'));
@@ -41,13 +42,46 @@ router.post('/doctors/profile', async (req, res, next) => {
 // POST /onboarding/doctors/credentials
 router.post('/doctors/credentials', async (req, res, next) => {
   try {
-    const { reg_number, reg_body, specialization } = req.body;
+    const { reg_number, reg_body, reg_year, practice_license_no, practice_license_authority, specialization } = req.body || {};
+    const clean = (v: any, n = 80) => (v === undefined || v === null ? null : String(v).trim().slice(0, n) || null);
+    const year = reg_year ? Number(reg_year) : null;
+    if (year !== null && (!Number.isInteger(year) || year < 1950 || year > new Date().getFullYear())) throw new AppError(400, 'INVALID', 'Invalid registration year.');
     await query(
-      `UPDATE doctors SET reg_number=$1, reg_body=$2, specialization=$3, updated_at=NOW()
-       WHERE user_id=$4`,
-      [reg_number, reg_body || '', specialization || '', req.user!.sub]
+      `UPDATE doctors SET reg_number=COALESCE($1, reg_number), reg_body=COALESCE($2, reg_body), reg_year=COALESCE($3, reg_year),
+              practice_license_no=COALESCE($4, practice_license_no), practice_license_authority=COALESCE($5, practice_license_authority),
+              specialization=COALESCE($6, specialization), updated_at=NOW()
+       WHERE user_id=$7`,
+      [clean(reg_number, 40), clean(reg_body), year, clean(practice_license_no, 60), clean(practice_license_authority), clean(specialization), req.user!.sub]
     );
     sendSuccess(res, { message: 'Credentials updated.' });
+  } catch (e) { next(e); }
+});
+
+// GET /onboarding/doctors/commission — the rate offered to this doctor
+router.get('/doctors/commission', async (req, res, next) => {
+  try {
+    const [d] = await query(
+      `SELECT ${EFFECTIVE_PCT_SQL} AS offered_pct, d.commission_status, d.commission_accepted_pct, d.commission_responded_at
+       FROM doctors d WHERE d.user_id=$1`, [req.user!.sub]) as any[];
+    if (!d) throw new AppError(404, 'NOT_FOUND', 'Doctor profile not found.');
+    sendSuccess(res, { ...d, offered_pct: Number(d.offered_pct), commission_accepted_pct: d.commission_accepted_pct == null ? null : Number(d.commission_accepted_pct) });
+  } catch (e) { next(e); }
+});
+
+// POST /onboarding/doctors/commission { accept: boolean, pct: number }
+router.post('/doctors/commission', async (req, res, next) => {
+  try {
+    const accept = req.body?.accept === true;
+    const seen = Number(req.body?.pct);
+    const [d] = await query(`SELECT d.id, ${EFFECTIVE_PCT_SQL} AS offered_pct FROM doctors d WHERE d.user_id=$1`, [req.user!.sub]) as any[];
+    if (!d) throw new AppError(404, 'NOT_FOUND', 'Doctor profile not found.');
+    const offered = Number(d.offered_pct);
+    if (accept && seen !== offered) throw new AppError(409, 'RATE_CHANGED', `The commission is now ${offered}%. Please review it again.`);
+    await query(
+      `UPDATE doctors SET commission_status=$2, commission_accepted_pct=CASE WHEN $2='accepted' THEN $3 ELSE commission_accepted_pct END,
+              commission_responded_at=NOW(), updated_at=NOW() WHERE id=$1`,
+      [d.id, accept ? 'accepted' : 'declined', offered]);
+    sendSuccess(res, { commission_status: accept ? 'accepted' : 'declined', offered_pct: offered });
   } catch (e) { next(e); }
 });
 

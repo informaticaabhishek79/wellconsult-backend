@@ -163,8 +163,10 @@ router.get('/me/earnings', authenticate, authorize('doctor'), async (req, res, n
       `SELECT
         COUNT(*) AS total_consultations,
         COUNT(*) FILTER (WHERE a.status = 'completed') AS completed_consultations,
-        COALESCE(SUM(CASE WHEN a.status = 'completed' THEN COALESCE(a.fee, 0) ELSE 0 END), 0) AS total_earnings,
-        COALESCE(SUM(CASE WHEN a.status = 'confirmed' THEN COALESCE(a.fee, 0) ELSE 0 END), 0) AS pending_earnings,
+        ROUND(COALESCE(SUM(CASE WHEN a.status = 'completed' THEN COALESCE(a.fee, 0) * (1 - COALESCE(a.commission_pct, 0) / 100) ELSE 0 END), 0)) AS total_earnings,
+        ROUND(COALESCE(SUM(CASE WHEN a.status = 'confirmed' THEN COALESCE(a.fee, 0) * (1 - COALESCE(a.commission_pct, 0) / 100) ELSE 0 END), 0)) AS pending_earnings,
+        COALESCE(SUM(CASE WHEN a.status = 'completed' THEN COALESCE(a.fee, 0) ELSE 0 END), 0) AS gross_earnings,
+        ROUND(COALESCE(SUM(CASE WHEN a.status = 'completed' THEN COALESCE(a.fee, 0) * COALESCE(a.commission_pct, 0) / 100 ELSE 0 END), 0)) AS platform_commission,
         (SELECT avg_rating FROM doctors WHERE user_id=$1) AS avg_rating
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id
@@ -187,7 +189,8 @@ router.get('/me/earnings/history', authenticate, authorize('doctor'), async (req
 
     const history = await query(
       `SELECT a.id, a.appt_date, a.appt_time, a.status, a.consult_type,
-              COALESCE(a.fee, 0) AS fee,
+              ROUND(COALESCE(a.fee, 0) * (1 - COALESCE(a.commission_pct, 0) / 100)) AS fee,
+              COALESCE(a.fee, 0) AS gross_fee, COALESCE(a.commission_pct, 0) AS commission_pct,
               pu.full_name AS patient_name
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id

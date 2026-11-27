@@ -23,7 +23,7 @@ const BUCKET = process.env.R2_BUCKET || 'sahyog';
 router.post('/upload-url', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
     const { document_type, file_name, content_type } = req.body;
-    const allowed_types = ['degree_certificate', 'registration_certificate', 'id_proof', 'photo'];
+    const allowed_types = ['degree_certificate', 'registration_certificate', 'practice_license', 'id_proof', 'photo'];
     if (!allowed_types.includes(document_type)) throw new AppError(400, 'INVALID_TYPE', 'Invalid document type.');
     const allowed_content = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
     if (!allowed_content.includes(content_type)) throw new AppError(400, 'INVALID_FORMAT', 'Only JPEG, PNG, WebP and PDF allowed.');
@@ -85,26 +85,8 @@ router.patch('/:doctorId/decision', authenticate, authorize('admin'), async (req
   try {
     const { decision, reason } = req.body;
     if (!['approved', 'rejected'].includes(decision)) throw new AppError(400, 'INVALID_DECISION', 'Decision must be approved or rejected.');
-    // Check documents uploaded before approving
-    if (decision === 'approved') {
-      const requiredDocs = ['degree_certificate', 'registration_certificate', 'id_proof'];
-      const uploadedDocs = await query(
-        'SELECT document_type FROM doctor_documents WHERE doctor_id=$1',
-        [req.params.doctorId]
-      ) as any[];
-      const uploadedTypes = uploadedDocs.map((d: any) => d.document_type);
-      const missingDocs = requiredDocs.filter(d => !uploadedTypes.includes(d));
-      if (missingDocs.length > 0) {
-        throw new AppError(422, 'DOCUMENTS_MISSING', 
-          `Cannot verify: missing documents — ${missingDocs.join(', ').replace(/_/g, ' ')}`);
-      }
-    }
-
-    const status = decision === 'approved' ? 'verified' : 'rejected';
-    await query(
-      `UPDATE doctors SET profile_status=$1, rejection_reason=$2, verified_at=${decision === 'approved' ? 'NOW()' : 'NULL'} WHERE id=$3`,
-      [status, reason || null, req.params.doctorId]
-    );
+    const { decide } = await import('../admin/review');
+    const { status } = await decide(req.params.doctorId, req.user!.sub, decision, reason);
     logger.info('Doctor verification decision', { doctorId: req.params.doctorId, decision, adminId: req.user!.sub });
     // Send notification
     setImmediate(async () => {
