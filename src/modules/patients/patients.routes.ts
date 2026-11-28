@@ -18,8 +18,9 @@ router.get('/me/appointments', authenticate, authorize('patient'), async (req, r
               pay.refund_status, pay.refund_amount,
               EXISTS (SELECT 1 FROM pre_assessments pa WHERE pa.appointment_id = a.id) AS has_assessment,
               EXISTS (SELECT 1 FROM care_plans cp WHERE cp.appointment_id = a.id) AS has_care_plan,
-              d.medical_system, d.specialization,
-              u.full_name AS doctor_name
+              d.medical_system, d.specialization, d.experience_years, d.avg_rating, d.total_reviews,
+              (d.verified_at IS NOT NULL) AS doctor_verified,
+              u.full_name AS doctor_name, u.avatar_url AS doctor_avatar
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id
        JOIN users u ON u.id = d.user_id
