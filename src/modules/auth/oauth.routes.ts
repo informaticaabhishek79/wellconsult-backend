@@ -1,134 +1,109 @@
 import { Router } from 'express';
+import crypto from 'crypto';
 import { query, queryOne } from '../../config/database';
+import { redis } from '../../config/redis';
 import { logger } from '../../utils/logger';
-import jwt from 'jsonwebtoken';
+import { signAccessToken, signRefreshToken } from '../../utils/jwt';
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sign in with Google. Needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env and,
+   in Google Cloud → Credentials → OAuth client (Web application), this redirect URI:
+     https://doctors.deemona.com/api/v1/auth/google/callback
+   Tokens are issued exactly like an email login (same secrets, refresh token in Redis).
+   ───────────────────────────────────────────────────────────────────────────── */
 
 const router = Router();
 
-const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const BACKEND_URL          = 'https://deemona-doctors-backend.onrender.com';
-const FRONTEND_URL         = 'https://deemona-doctors-web.onrender.com';
-const JWT_SECRET           = process.env.JWT_SECRET || 'secret';
-const JWT_REFRESH_SECRET   = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret';
+const CLIENT_ID = () => process.env.GOOGLE_CLIENT_ID || '';
+const CLIENT_SECRET = () => process.env.GOOGLE_CLIENT_SECRET || '';
+const APP_URL = () => (process.env.APP_URL || 'https://doctors.deemona.com').replace(/\/$/, '');
+const CALLBACK = () => `${APP_URL()}/api/v1/auth/google/callback`;
+const enabled = () => !!CLIENT_ID() && !!CLIENT_SECRET();
 
-// Temporary session store (in-memory, expires in 5 min)
-const oauthSessions = new Map<string, any>();
+// One-time codes handed to the browser after Google sign-in (5 minutes).
+const sessions = new Map<string, { data: any; expires: number }>();
+const sweep = () => { for (const [k, v] of sessions) if (v.expires < Date.now()) sessions.delete(k); };
+const back = (res: any, err?: string, code?: string) =>
+  res.redirect(`${APP_URL()}/${err ? `?oauth_error=${encodeURIComponent(err)}` : `#oauth_code=${code}`}`);
 
-// Step 1: Redirect to Google
+/** Lets the sign-in page show the Google button only when Google sign-in is configured. */
+router.get('/google/status', (_req, res) => { res.json({ success: true, data: { enabled: enabled() } }); });
+
+// Step 1: send the user to Google, with a one-time state value to stop forged callbacks.
 router.get('/google', (req, res) => {
+  if (!enabled()) { back(res, 'not_configured'); return; }
+  const state = crypto.randomBytes(16).toString('hex');
+  res.cookie('g_state', state, { maxAge: 10 * 60 * 1000, httpOnly: true, secure: true, sameSite: 'lax', path: '/api/v1/auth/google' });
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: `${BACKEND_URL}/api/v1/auth/google/callback`,
-    response_type: 'code',
-    scope: 'openid email profile',
-    access_type: 'offline',
-    prompt: 'select_account',
+    client_id: CLIENT_ID(), redirect_uri: CALLBACK(), response_type: 'code',
+    scope: 'openid email profile', prompt: 'select_account', state,
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
 
-// Step 2: Google callback - store session, redirect with short code
+// Step 2: Google sends the user back here.
 router.get('/google/callback', async (req, res) => {
   try {
-    const { code } = req.query;
-    if (!code) { res.redirect(`${FRONTEND_URL}?oauth_error=no_code`); return; }
+    const { code, state, error } = req.query as Record<string, string>;
+    if (error) { back(res, 'cancelled'); return; }
+    if (!code) { back(res, 'no_code'); return; }
+    if (!state || state !== req.cookies?.g_state) { back(res, 'state_mismatch'); return; }
+    res.clearCookie('g_state', { path: '/api/v1/auth/google' });
 
-    // Exchange code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code: code as string,
-        client_id: GOOGLE_CLIENT_ID,
-        client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${BACKEND_URL}/api/v1/auth/google/callback`,
-        grant_type: 'authorization_code',
-      }),
+      body: new URLSearchParams({ code, client_id: CLIENT_ID(), client_secret: CLIENT_SECRET(), redirect_uri: CALLBACK(), grant_type: 'authorization_code' }),
     });
     const tokenData = await tokenRes.json() as any;
-    if (!tokenData.access_token) { res.redirect(`${FRONTEND_URL}?oauth_error=token_failed`); return; }
+    if (!tokenData.access_token) { logger.warn('Google token exchange failed', { error: tokenData.error }); back(res, 'token_failed'); return; }
 
-    // Get user info from Google
-    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    });
-    const googleUser = await userRes.json() as any;
-    if (!googleUser.email) { res.redirect(`${FRONTEND_URL}?oauth_error=no_email`); return; }
+    const g = await (await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { Authorization: `Bearer ${tokenData.access_token}` } })).json() as any;
+    if (!g.email || g.email_verified === false) { back(res, 'no_email'); return; }
+    const email = String(g.email).toLowerCase();
 
-    // Find or create user
-    let user = await queryOne<any>(
-      'SELECT id, full_name, role, is_active FROM users WHERE email=$1',
-      [googleUser.email]
-    );
-
+    let user = await queryOne<any>('SELECT id, full_name, role, is_active, is_verified FROM users WHERE LOWER(email)=$1', [email]);
     if (!user) {
-      const [newUser] = await query(
+      // New people who choose Google become patients. Doctors and agents register with email first.
+      const [u] = await query<any>(
         `INSERT INTO users (full_name, email, password_hash, role, is_verified, is_active, avatar_url)
          VALUES ($1, $2, 'GOOGLE_OAUTH', 'patient', TRUE, TRUE, $3) RETURNING id, full_name, role`,
-        [googleUser.name || googleUser.email.split('@')[0], googleUser.email, googleUser.picture || null]
-      ) as any[];
-      await query('INSERT INTO patients (user_id) VALUES ($1)', [newUser.id]);
-      user = { ...newUser, is_active: true };
+        [g.name || email.split('@')[0], email, g.picture || null]);
+      await query('INSERT INTO patients (user_id) VALUES ($1)', [u.id]);
+      user = { ...u, is_active: true };
+    } else if (!user.is_verified) {
+      // Google has confirmed they own this address.
+      await query('UPDATE users SET is_verified=TRUE WHERE id=$1', [user.id]);
     }
+    if (!user.is_active) { back(res, 'account_disabled'); return; }
 
-    if (!user.is_active) { res.redirect(`${FRONTEND_URL}?oauth_error=account_disabled`); return; }
+    const patient = user.role === 'patient' ? await queryOne<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [user.id]) : null;
+    const doctor = user.role === 'doctor' ? await queryOne<{ id: string }>('SELECT id FROM doctors WHERE user_id=$1', [user.id]) : null;
+    const payload = { sub: user.id, role: user.role, doctorId: doctor?.id, patientId: patient?.id };
+    const accessToken = signAccessToken(payload as any);
+    const refreshToken = signRefreshToken({ sub: user.id });
+    try { await redis.setEx(`refresh:${user.id}`, 30 * 24 * 60 * 60, refreshToken); } catch (e) { logger.warn('Could not store refresh token', { error: (e as Error).message }); }
 
-    // Get patient/doctor ID
-    let patientId = null, doctorId = null;
-    if (user.role === 'patient') {
-      const p = await queryOne<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [user.id]);
-      patientId = p?.id;
-    } else if (user.role === 'doctor') {
-      const d = await queryOne<{ id: string }>('SELECT id FROM doctors WHERE user_id=$1', [user.id]);
-      doctorId = d?.id;
-    }
-
-    // Generate JWT tokens
-    const accessToken  = jwt.sign({ sub: user.id, role: user.role, patientId, doctorId }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ sub: user.id }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
-
-    // Store in memory with short code
-    const sessionCode = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    oauthSessions.set(sessionCode, {
-      accessToken, refreshToken,
-      user: { id: user.id, full_name: user.full_name, role: user.role, patientId, doctorId },
+    sweep();
+    const oneTime = crypto.randomBytes(24).toString('hex');
+    sessions.set(oneTime, {
+      data: { accessToken, refreshToken, user: { id: user.id, full_name: user.full_name, role: user.role, doctorId: doctor?.id, patientId: patient?.id } },
       expires: Date.now() + 5 * 60 * 1000,
     });
-
-    // Cleanup old sessions
-    for (const [k, v] of oauthSessions) {
-      if (v.expires < Date.now()) oauthSessions.delete(k);
-    }
-
-    // Set code in cookie then redirect - cookie persists across redirect
-    res.cookie('oauth_code', sessionCode, {
-      maxAge: 5 * 60 * 1000, // 5 minutes
-      httpOnly: false, // Frontend needs to read it
-      secure: true,
-      sameSite: 'none', // Cross-domain
-      domain: '.onrender.com', // Share across *.onrender.com
-    });
-    res.redirect(FRONTEND_URL);
+    back(res, undefined, oneTime);
   } catch (err) {
     logger.error('Google OAuth error', { error: (err as Error).message });
-    res.redirect(`${FRONTEND_URL}?oauth_error=server_error`);
+    back(res, 'server_error');
   }
 });
 
-// Step 3: Frontend exchanges code for tokens
-router.post('/google/token', async (req, res) => {
-  const { code } = req.body;
-  if (!code) { res.status(400).json({ success: false, error: { message: 'No code provided' } }); return; }
-
-  const session = oauthSessions.get(code);
-  if (!session || session.expires < Date.now()) {
-    res.status(400).json({ success: false, error: { message: 'Invalid or expired OAuth code' } });
-    return;
-  }
-
-  oauthSessions.delete(code);
-  res.json({ success: true, data: session });
+// Step 3: the browser swaps the one-time code for tokens.
+router.post('/google/token', (req, res) => {
+  const code = String(req.body?.code || '');
+  const s = sessions.get(code);
+  sessions.delete(code);
+  if (!s || s.expires < Date.now()) { res.status(400).json({ success: false, error: { code: 'OAUTH_EXPIRED', message: 'Google sign-in expired. Please try again.' } }); return; }
+  res.json({ success: true, data: s.data });
 });
 
 export default router;
