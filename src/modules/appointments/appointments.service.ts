@@ -74,8 +74,11 @@ export const AppointmentsService = {
     doctor_id: string; appt_date: string; appt_time: string;
     consult_type: string; payment_method: string; is_emergency?: boolean;
   }) {
-    // Check slot availability (skip for emergency)
-    if (!body.is_emergency) {
+    // Emergency booking was removed: emergencies are directed to 112 and in-person care.
+    if (body.is_emergency) {
+      throw new AppError(422, 'EMERGENCY_NOT_SUPPORTED', 'For a medical emergency call 112 or go to the nearest emergency department. Online consultations are not for emergencies.');
+    }
+    {
       const conflict = await queryOne(
         `SELECT id FROM appointments WHERE doctor_id=$1 AND appt_date=$2 AND appt_time=$3
          AND status NOT IN ('cancelled','no_show')`,

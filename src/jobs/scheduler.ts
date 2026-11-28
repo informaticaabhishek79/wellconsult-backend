@@ -151,7 +151,7 @@ export function startScheduler(): void {
     }
   });
 
-  // ── SLA Enforcement: Auto-refund if doctor doesn't confirm within 15 min ──
+  // ── SLA Enforcement: instant consultations only (scheduled appointments are never auto-cancelled) ──
   cron.schedule('*/5 * * * *', async () => { // runs every 5 minutes
     try {
       const rows = await query<{
@@ -168,6 +168,7 @@ export function startScheduler(): void {
          JOIN doctors d ON d.id = a.doctor_id
          JOIN users du ON du.id = d.user_id
          WHERE a.status = 'booked'
+           AND a.is_instant = TRUE
            AND a.booked_at < NOW() - INTERVAL '15 minutes'`
       );
 

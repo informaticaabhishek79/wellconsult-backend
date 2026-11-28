@@ -32,6 +32,9 @@ const STATEMENTS = [
   // Allow the new document type (old check constraint, if any, listed fixed types)
   `ALTER TABLE doctor_documents DROP CONSTRAINT IF EXISTS doctor_documents_document_type_check`,
 
+  // Instant consultations carry the 15-minute promise; scheduled ones do not
+  `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS is_instant BOOLEAN NOT NULL DEFAULT FALSE`,
+
   // Commission snapshot on each appointment
   `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS commission_pct NUMERIC(5,2)`,
   `CREATE OR REPLACE FUNCTION set_appointment_commission() RETURNS trigger AS $$
