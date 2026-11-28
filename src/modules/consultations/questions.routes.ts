@@ -34,7 +34,8 @@ router.get('/', authenticate, authorize('patient'), async (req, res, next) => {
     if (!patient) { sendSuccess(res, []); return; }
 
     const questions = await query(
-      `SELECT dq.*, u.full_name AS doctor_name
+      `SELECT dq.*, u.full_name AS doctor_name, u.avatar_url AS doctor_avatar,
+              d.specialization AS doctor_specialization, d.experience_years AS doctor_experience
        FROM doctor_questions dq
        LEFT JOIN doctors d ON d.id = dq.doctor_id
        LEFT JOIN users u ON u.id = d.user_id
