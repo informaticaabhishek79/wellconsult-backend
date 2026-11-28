@@ -13,8 +13,10 @@ import { logger } from '../../utils/logger';
    retries and duplicate webhooks never double-count.
    ───────────────────────────────────────────────────────────────────────────── */
 
-export type Settings = { tax_pct: number; patient_full_refund_hours: number; slot_hold_minutes: number; instant_sla_minutes: number; instant_escalate_minutes: number };
-const DEFAULTS: Settings = { tax_pct: 0, patient_full_refund_hours: 2, slot_hold_minutes: 15, instant_sla_minutes: 15, instant_escalate_minutes: 5 };
+export type Settings = { tax_pct: number; patient_full_refund_hours: number; slot_hold_minutes: number; instant_sla_minutes: number; instant_escalate_minutes: number;
+  gold_video_credits: number; gold_chat_credits: number; diamond_video_credits: number; diamond_chat_credits: number };
+const DEFAULTS: Settings = { tax_pct: 0, patient_full_refund_hours: 2, slot_hold_minutes: 15, instant_sla_minutes: 15, instant_escalate_minutes: 5,
+  gold_video_credits: 1, gold_chat_credits: 2, diamond_video_credits: 3, diamond_chat_credits: 5 };
 const PLAN_DISCOUNT: Record<string, number> = { gold: 10, diamond: 25 };
 export const REFUND_ETA = '5–7 business days';
 
@@ -60,14 +62,31 @@ export async function quote(userId: string, doctorId: string, consultType: strin
   const fee = await baseFeePaise(doctorId, consultType);
   const sub = await queryOne<{ plan: string }>(
     `SELECT plan FROM subscriptions WHERE user_id=$1 AND status='active' AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [userId]).catch(() => null);
-  const pct = PLAN_DISCOUNT[sub?.plan || ''] || 0;
+  const plan = sub?.plan || 'free';
+  // Included free consultations (only when online payments are on: otherwise every booking is already free).
+  const credit = paymentsEnabled() ? await planCredit(userId, plan, consultType, s) : { allowed: 0, used: 0 };
+  const creditApplied = credit.allowed > credit.used;
+  const pct = creditApplied ? 100 : (PLAN_DISCOUNT[plan] || 0);
   const discount = Math.round(fee * pct / 100);
   const tax = Math.round((fee - discount) * (Number(s.tax_pct) || 0) / 100);
   return {
-    fee_paise: fee, discount_paise: discount, discount_pct: pct, plan: sub?.plan || 'free',
+    fee_paise: fee, discount_paise: discount, discount_pct: pct, plan,
+    credit_applied: creditApplied, credits_left: Math.max(0, credit.allowed - credit.used - (creditApplied ? 1 : 0)), credits_allowed: credit.allowed,
     tax_paise: tax, tax_pct: Number(s.tax_pct) || 0, total_paise: fee - discount + tax, currency: 'INR',
     payments_enabled: paymentsEnabled(),
   };
+}
+
+/** Free consultations a plan includes this calendar month (IST) for this consult type, and how many are used. */
+export async function planCredit(userId: string, plan: string, consultType: string, s?: Settings, client?: any) {
+  s = s || await getSettings();
+  const allowed = Number((s as any)[`${plan}_${consultType}_credits`] || 0);
+  if (!allowed) return { allowed: 0, used: 0 };
+  const sql = `SELECT COUNT(*)::int AS n FROM appointments a JOIN patients p ON p.id=a.patient_id
+               WHERE p.user_id=$1 AND a.plan_credit AND a.consult_type=$2 AND a.status NOT IN ('cancelled')
+                 AND date_trunc('month', a.created_at AT TIME ZONE 'Asia/Kolkata') = date_trunc('month', NOW() AT TIME ZONE 'Asia/Kolkata')`;
+  const r = client ? (await client.query(sql, [userId, consultType])).rows[0] : await queryOne<{ n: number }>(sql, [userId, consultType]);
+  return { allowed, used: Number(r?.n || 0) };
 }
 
 /* ── Orders & checkout ──────────────────────────────────────────────────── */
@@ -111,9 +130,9 @@ export async function attachPayment(client: any, appt: { id: string; patient_id:
     [appt.id, appt.patient_id, appt.doctor_id, q.total_paise, requires ? 'pending' : 'not_required'])).rows;
   await client.query(
     `UPDATE appointments SET payment_id=$2, fee=$9, fee_paise=$3, discount_paise=$4, tax_paise=$5, amount_paise=$6,
-            payment_status=$7, hold_expires_at=$8 WHERE id=$1`,
+            payment_status=$7, hold_expires_at=$8, plan_credit=$10 WHERE id=$1`,
     [appt.id, pay.id, q.fee_paise, q.discount_paise, q.tax_paise, q.total_paise,
-     requires ? 'unpaid' : 'not_required', requires ? new Date(Date.now() + s.slot_hold_minutes * 60000) : null, q.fee_paise]);
+     requires ? 'unpaid' : 'not_required', requires ? new Date(Date.now() + s.slot_hold_minutes * 60000) : null, q.fee_paise, !!q.credit_applied]);
   return { payment_id: pay.id, requires };
 }
 
@@ -242,8 +261,9 @@ export async function recordRefund(paymentId: string, appointmentId: string, ref
 
 export async function creditDoctor(appointmentId: string) {
   const a = await queryOne<any>(
-    `SELECT a.id, a.doctor_id, a.fee_paise, a.amount_paise, a.tax_paise, a.commission_pct, a.payment_status FROM appointments a WHERE a.id=$1`, [appointmentId]);
-  if (!a || a.payment_status !== 'paid' || a.fee_paise == null) return null;
+    `SELECT a.id, a.doctor_id, a.fee_paise, a.amount_paise, a.tax_paise, a.commission_pct, a.payment_status, a.plan_credit FROM appointments a WHERE a.id=$1`, [appointmentId]);
+  // Paid consultations, and free plan consultations (the platform pays the doctor for those).
+  if (!a || a.fee_paise == null || !(a.payment_status === 'paid' || (a.plan_credit && a.payment_status === 'not_required'))) return null;
   const pct = Number(a.commission_pct || 0);
   // The doctor earns their fee minus the commission they accepted. Plan discounts are absorbed by the platform.
   const payable = Math.round(Number(a.fee_paise) * (1 - pct / 100));

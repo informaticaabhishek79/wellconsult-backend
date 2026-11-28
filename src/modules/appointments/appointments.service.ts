@@ -103,6 +103,13 @@ export const AppointmentsService = {
     const requires = q.payments_enabled && q.total_paise > 0;
 
     const appointmentId = await withTransaction(async (client) => {
+      if (q.credit_applied) {
+        // Serialise this patient's credit use so two quick bookings can't both take the last free consultation.
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [patient.user_id]);
+        const { planCredit } = await import('../billing/billing.service');
+        const c = await planCredit(patient.user_id, q.plan, consultType, s, client);
+        if (c.used >= c.allowed) throw new AppError(409, 'CREDIT_USED', 'Your free consultation for this month was just used. Please review the new price and book again.');
+      }
       const [appt] = await client.query(
         `INSERT INTO appointments (doctor_id, patient_id, appt_date, appt_time, consult_type, status, is_instant, instant_deadline)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,

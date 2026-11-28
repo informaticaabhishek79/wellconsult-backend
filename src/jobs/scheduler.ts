@@ -157,6 +157,18 @@ export function startScheduler(): void {
     catch (err) { logger.error('[Scheduler] Instant jobs error', { error: (err as Error).message }); }
   });
 
+  // ── Medicine reminders from prescriptions (every 5 minutes) ──
+  cron.schedule('*/5 * * * *', async () => {
+    try { const { runMedicationReminders } = await import('../modules/clinical/meds'); await runMedicationReminders(); }
+    catch (err) { logger.error('[Scheduler] Medicine reminder error', { error: (err as Error).message }); }
+  });
+
+  // ── Care-plan follow-up reminders (daily, 09:15 IST) ──
+  cron.schedule('45 3 * * *', async () => {
+    try { const { runFollowUpReminders } = await import('../modules/clinical/meds'); await runFollowUpReminders(); }
+    catch (err) { logger.error('[Scheduler] Care-plan follow-up error', { error: (err as Error).message }); }
+  });
+
   // ── Retry failed refunds (every 30 minutes) ──
   cron.schedule('*/30 * * * *', async () => {
     try { const { retryFailedRefunds } = await import('../modules/billing/instant.jobs'); await retryFailedRefunds(); }

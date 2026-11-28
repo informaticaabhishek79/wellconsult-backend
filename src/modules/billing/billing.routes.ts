@@ -132,6 +132,10 @@ router.put('/admin/settings', authenticate, authorize('admin'), async (req, res,
       slot_hold_minutes: num(b.slot_hold_minutes, 5, 60, cur.slot_hold_minutes),
       instant_sla_minutes: num(b.instant_sla_minutes, 5, 60, cur.instant_sla_minutes),
       instant_escalate_minutes: num(b.instant_escalate_minutes, 1, 30, cur.instant_escalate_minutes),
+      gold_video_credits: num(b.gold_video_credits, 0, 30, cur.gold_video_credits),
+      gold_chat_credits: num(b.gold_chat_credits, 0, 30, cur.gold_chat_credits),
+      diamond_video_credits: num(b.diamond_video_credits, 0, 30, cur.diamond_video_credits),
+      diamond_chat_credits: num(b.diamond_chat_credits, 0, 30, cur.diamond_chat_credits),
     };
     await query(`INSERT INTO platform_settings (key, value, updated_at, updated_by) VALUES ('billing',$1,NOW(),$2)
                  ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=NOW(), updated_by=$2`, [JSON.stringify(next_), req.user!.sub]);

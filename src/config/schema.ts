@@ -131,6 +131,74 @@ const STATEMENTS = [
   `DROP TRIGGER IF EXISTS trg_appointment_commission ON appointments`,
   `CREATE TRIGGER trg_appointment_commission BEFORE INSERT ON appointments
      FOR EACH ROW EXECUTE FUNCTION set_appointment_commission()`,
+  // ── Phase 2: connected care ───────────────────────────────────────────────
+  `ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS appointment_id TEXT`,
+  `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS plan_credit BOOLEAN NOT NULL DEFAULT FALSE`,
+  `CREATE TABLE IF NOT EXISTS pre_assessments (
+     id BIGSERIAL PRIMARY KEY,
+     appointment_id UUID NOT NULL UNIQUE,
+     patient_id UUID NOT NULL,
+     chief_complaint TEXT NOT NULL,
+     duration TEXT,
+     severity INT,
+     symptoms JSONB NOT NULL DEFAULT '[]',
+     current_medicines TEXT,
+     allergies JSONB NOT NULL DEFAULT '[]',
+     vitals JSONB NOT NULL DEFAULT '{}',
+     notes TEXT,
+     red_flags JSONB NOT NULL DEFAULT '[]',
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS care_plans (
+     id BIGSERIAL PRIMARY KEY,
+     appointment_id UUID NOT NULL UNIQUE,
+     doctor_id UUID NOT NULL,
+     patient_id UUID NOT NULL,
+     diagnosis TEXT,
+     summary TEXT,
+     advice TEXT,
+     diet TEXT,
+     lifestyle TEXT,
+     warning_signs TEXT,
+     tests JSONB NOT NULL DEFAULT '[]',
+     follow_up_date DATE,
+     follow_up_reminded BOOLEAN NOT NULL DEFAULT FALSE,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS medication_schedules (
+     id BIGSERIAL PRIMARY KEY,
+     patient_id UUID NOT NULL,
+     prescription_id TEXT,
+     medicine_name TEXT NOT NULL,
+     dosage TEXT,
+     instructions TEXT,
+     times TEXT[] NOT NULL DEFAULT '{}',
+     start_date DATE NOT NULL,
+     end_date DATE,
+     active BOOLEAN NOT NULL DEFAULT TRUE,
+     source TEXT NOT NULL DEFAULT 'prescription',
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_medsched_patient ON medication_schedules(patient_id) WHERE active`,
+  `CREATE TABLE IF NOT EXISTS medication_doses (
+     id BIGSERIAL PRIMARY KEY,
+     schedule_id BIGINT NOT NULL REFERENCES medication_schedules(id) ON DELETE CASCADE,
+     due_at TIMESTAMPTZ NOT NULL,
+     status TEXT NOT NULL DEFAULT 'due',
+     reminded_at TIMESTAMPTZ,
+     acted_at TIMESTAMPTZ,
+     UNIQUE (schedule_id, due_at)
+   )`,
+  `CREATE TABLE IF NOT EXISTS allergy_overrides (
+     id BIGSERIAL PRIMARY KEY,
+     prescription_id TEXT,
+     doctor_id UUID,
+     patient_id UUID,
+     warnings JSONB NOT NULL,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
 ];
 
 export async function ensureSchema() {

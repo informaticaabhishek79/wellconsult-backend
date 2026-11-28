@@ -33,6 +33,9 @@ router.get('/me', authenticate, async (req, res, next) => {
 // Get all plans
 router.get('/plans', async (req, res, next) => {
   try {
+    const { getSettings } = await import('../billing/billing.service');
+    const st = await getSettings();
+    const free = (v: number, c: number) => `${v} free video + ${c} free chat consultation${c === 1 ? '' : 's'} every month`;
     sendSuccess(res, {
       free: {
         name: 'Free',
@@ -49,8 +52,7 @@ router.get('/plans', async (req, res, next) => {
         price: 25,
         features: [
           'Everything in Free',
-          '1 video consultation/month',
-          '5 chat consultations/month',
+          free(st.gold_video_credits, st.gold_chat_credits),
           'All medical systems access',
           'Medical records storage',
           '10% discount on consultation fees',
@@ -62,7 +64,7 @@ router.get('/plans', async (req, res, next) => {
         price: 50,
         features: [
           'Everything in Gold',
-          'Unlimited video consultations',
+          free(st.diamond_video_credits, st.diamond_chat_credits),
           '25% discount on consultation fees',
           'Family account (up to 4 members)',
           'Unlimited medical records',

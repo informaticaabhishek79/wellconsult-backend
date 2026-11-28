@@ -4,6 +4,10 @@ import { authorize } from '../../middleware/authorize';
 import { query, queryOne, withTransaction } from '../../config/database';
 import { sendSuccess, sendCreated } from '../../utils/apiResponse';
 import { AppError } from '../../middleware/errorHandler';
+import { checkAllergies } from '../clinical/allergy';
+import { schedulesFromPrescription } from '../clinical/meds';
+import { patientAllergies } from '../clinical/clinical.routes';
+import { NotificationService } from '../notifications/notifications.service';
 
 const router = Router();
 router.use(authenticate);
@@ -11,7 +15,7 @@ router.use(authenticate);
 // POST /prescriptions (doctor only)
 router.post('/', authorize('doctor'), async (req, res, next) => {
   try {
-    const { consultation_id, appointment_id, medical_system, items } = req.body;
+    const { consultation_id, appointment_id, medical_system, items, allergy_acknowledged, allergy_override_reason } = req.body;
     let c: { doctor_id: string; patient_id: string } | null = null;
 
     if (consultation_id) {
@@ -26,25 +30,42 @@ router.post('/', authorize('doctor'), async (req, res, next) => {
       c = appt || null;
     }
     if (!c) throw new AppError(404, 'NOT_FOUND', 'Consultation not found.');
+    if (c.doctor_id !== req.user!.doctorId) throw new AppError(403, 'FORBIDDEN', 'You can only prescribe for your own patients.');
+    const list = (Array.isArray(items) ? items : []).filter((i: any) => i?.medicine_name);
+    if (!list.length) throw new AppError(400, 'MISSING_FIELDS', 'Add at least one medicine.');
+
+    // Drug-allergy safety check: the doctor must confirm before prescribing against a recorded allergy.
+    const warnings = checkAllergies(await patientAllergies(c.patient_id), list.map((i: any) => String(i.medicine_name)));
+    if (warnings.length && !allergy_acknowledged)
+      throw new AppError(409, 'ALLERGY_WARNING', 'This prescription may conflict with the patient\'s recorded allergies.', { warnings });
+    if (warnings.length && !String(allergy_override_reason || '').trim())
+      throw new AppError(400, 'REASON_REQUIRED', 'Give a reason for prescribing despite the allergy warning.', { warnings });
 
     const result = await withTransaction(async (client) => {
       const [rx] = await client.query(
-        `INSERT INTO prescriptions (consultation_id, doctor_id, patient_id, medical_system)
-         VALUES ($1,$2,$3,$4) RETURNING id, issued_at`,
-        [consultation_id || null, c.doctor_id, c.patient_id, medical_system]
+        `INSERT INTO prescriptions (consultation_id, doctor_id, patient_id, medical_system, appointment_id)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id, issued_at`,
+        [consultation_id || null, c.doctor_id, c.patient_id, medical_system, appointment_id ? String(appointment_id) : null]
       ).then(r => r.rows);
 
-      for (const item of items || []) {
+      for (const item of list) {
         await client.query(
           `INSERT INTO prescription_items (prescription_id, medicine_name, dosage, frequency, duration_days, instructions)
            VALUES ($1,$2,$3,$4,$5,$6)`,
           [rx.id, item.medicine_name, item.dosage, item.frequency, item.duration_days, item.instructions]
         );
       }
+      await schedulesFromPrescription(client, rx.id, c!.patient_id, list);
+      if (warnings.length)
+        await client.query(`INSERT INTO allergy_overrides (prescription_id, doctor_id, patient_id, warnings) VALUES ($1,$2,$3,$4)`,
+          [String(rx.id), c!.doctor_id, c!.patient_id, JSON.stringify({ warnings, reason: String(allergy_override_reason).slice(0, 500) })]);
       return rx;
     });
 
-    sendCreated(res, result);
+    queryOne<any>(`SELECT u.id, u.fcm_token FROM patients p JOIN users u ON u.id=p.user_id WHERE p.id=$1`, [c.patient_id]).then(u => u && NotificationService.send({
+      userId: u.id, type: 'prescription', title: 'New prescription', body: 'Your medicines and reminders are in Medicines.', refType: 'prescription', refId: String(result.id), fcmToken: u.fcm_token,
+    })).catch(() => {});
+    sendCreated(res, { ...result, allergy_warnings: warnings });
   } catch (e) { next(e); }
 });
 
