@@ -59,8 +59,8 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
       return;
     }
 
-    const user = await queryOne<{ id: string; full_name: string; is_active: boolean }>(
-      'SELECT id, full_name, is_active FROM users WHERE email=$1', [email]
+    const user = await queryOne<{ id: string; full_name: string; email: string; is_active: boolean }>(
+      'SELECT id, full_name, email, is_active FROM users WHERE LOWER(email)=LOWER($1)', [String(email).trim()]
     );
 
     // Always return success to prevent email enumeration
@@ -69,25 +69,27 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
       return;
     }
 
-    const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const { randomBytes } = await import('crypto');
+    const token = randomBytes(24).toString('hex');
     await query(
       `INSERT INTO otp_verifications (user_id, otp_code, purpose, expires_at)
        VALUES ($1, $2, 'password_reset', NOW() + INTERVAL '1 hour')`,
       [user.id, token]
     );
 
-    const resetUrl = `https://deemona-doctors-web.onrender.com?reset_token=${token}&user_id=${user.id}`;
+    const appUrl = (process.env.APP_URL || 'https://doctors.deemona.com').replace(/\/$/, '');
+    const resetUrl = `${appUrl}/?reset_token=${token}&user_id=${user.id}`;
     const resend = new Resend(process.env.RESEND_API_KEY || '');
 
     setImmediate(async () => {
       try {
         await resend.emails.send({
           from: 'Deemona Doctors <noreply@mail.deemona.com>',
-          to: email,
+          to: user.email,
           subject: 'Reset your Deemona Doctors password',
           html: [
             '<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#fff">',
-            '<div style="margin-bottom:24px"><span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span></div>',
+            '<div style="margin-bottom:24px"><span style="font-size:20px;font-weight:800;color:#1A1A18">Deemona <span style="color:#0A7B6C">Doctors</span></span></div>',
             '<h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">Reset your password</h2>',
             '<p style="color:#73726C;font-size:15px;line-height:1.6;margin:0 0 24px">Hi ' + user.full_name + ', click the button below to reset your password. This link expires in 1 hour.</p>',
             '<a href="' + resetUrl + '" style="display:block;background:#0A7B6C;color:#fff;text-decoration:none;padding:14px 24px;border-radius:8px;font-weight:700;font-size:15px;text-align:center;margin-bottom:24px">Reset my password</a>',
