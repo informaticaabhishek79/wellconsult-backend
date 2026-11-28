@@ -16,6 +16,8 @@ router.get('/me/appointments', authenticate, authorize('patient'), async (req, r
       `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status, a.doctor_id,
               a.payment_status, a.amount_paise, a.hold_expires_at, a.is_instant, a.cancellation_reason,
               pay.refund_status, pay.refund_amount,
+              EXISTS (SELECT 1 FROM pre_assessments pa WHERE pa.appointment_id = a.id) AS has_assessment,
+              EXISTS (SELECT 1 FROM care_plans cp WHERE cp.appointment_id = a.id) AS has_care_plan,
               d.medical_system, d.specialization,
               u.full_name AS doctor_name
        FROM appointments a

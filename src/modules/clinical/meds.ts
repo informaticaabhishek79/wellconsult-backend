@@ -25,11 +25,13 @@ export function timesFromFrequency(freq?: string | null): { times: string[]; gue
   if (/\b(sos|prn|as needed|when needed|if needed|when required|as required)\b/.test(f)) return { times: [], guessed: false };
   const everyH = f.match(/every (\d{1,2}) ?(h|hr|hrs|hour|hours)\b/);
   if (everyH) {
-    const step = Math.max(4, Number(everyH[1]));
+    const step = Math.min(24, Math.max(4, Number(everyH[1])));
+    const n = Math.min(6, Math.floor(24 / step));
     const times: string[] = [];
-    for (let h = 8; h < 24 && times.length < 6; h += step) times.push(`${String(h).padStart(2, '0')}:00`);
+    for (let i = 0; i < n; i++) { const h = 6 + i * step; times.push(h >= 24 ? '23:00' : `${String(h).padStart(2, '0')}:00`); }
     return { times, guessed: false };
   }
+  if (/(before|after|with) (meals|food)/.test(f) && !/once|twice|three|thrice|bd|tds|od\b/.test(f)) return { times: [MORNING, AFTERNOON, NIGHT], guessed: true };
   if (/\b(qid|qds)\b|four times|4 times/.test(f)) return { times: ['08:00', '12:00', '16:00', NIGHT], guessed: false };
   if (/\b(tds|tid)\b|thrice|three times|3 times/.test(f)) return { times: [MORNING, AFTERNOON, NIGHT], guessed: false };
   if (/\b(bd|bid)\b|twice|two times|2 times/.test(f)) return { times: [MORNING, NIGHT], guessed: false };

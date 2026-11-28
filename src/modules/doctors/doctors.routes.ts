@@ -84,10 +84,13 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
     const { query } = await import('../../config/database');
     const appointments = await query(
       `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status, a.payment_status, a.is_instant, a.instant_deadline,
-              u.full_name AS patient_name, p.id AS patient_id
+              u.full_name AS patient_name, p.id AS patient_id,
+              pa.id IS NOT NULL AS has_assessment, COALESCE(jsonb_array_length(pa.red_flags), 0) > 0 AS assessment_urgent,
+              EXISTS (SELECT 1 FROM care_plans cp WHERE cp.appointment_id = a.id) AS has_care_plan
        FROM appointments a
        JOIN patients p ON p.id = a.patient_id
        JOIN users u ON u.id = p.user_id
+       LEFT JOIN pre_assessments pa ON pa.appointment_id = a.id
        WHERE a.doctor_id = $1 AND a.status <> 'pending_payment'
        ORDER BY a.appt_date DESC, a.appt_time DESC`,
       [req.user!.doctorId]
