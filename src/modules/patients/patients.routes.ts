@@ -13,12 +13,15 @@ router.get('/me/appointments', authenticate, authorize('patient'), async (req, r
     const [patient] = await query<{ id: string }>('SELECT id FROM patients WHERE user_id=$1', [req.user!.sub]) as any[];
     if (!patient) { sendSuccess(res, []); return; }
     const appts = await query(
-      `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status,
+      `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status, a.doctor_id,
+              a.payment_status, a.amount_paise, a.hold_expires_at, a.is_instant, a.cancellation_reason,
+              pay.refund_status, pay.refund_amount,
               d.medical_system, d.specialization,
               u.full_name AS doctor_name
        FROM appointments a
        JOIN doctors d ON d.id = a.doctor_id
        JOIN users u ON u.id = d.user_id
+       LEFT JOIN payments pay ON pay.id = a.payment_id
        WHERE a.patient_id = $1
        ORDER BY a.appt_date DESC, a.appt_time DESC`,
       [patient.id]

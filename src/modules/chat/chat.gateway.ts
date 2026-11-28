@@ -140,6 +140,9 @@ export function initSocketServer(httpServer: HttpServer) {
         const [sender] = await query('SELECT full_name FROM users WHERE id=$1', [user.sub]) as any[];
         const fullMsg = { ...msg, sender_name: sender?.full_name, role: user.role };
         io.to(`appointment:${appointmentId}`).emit('new_message', fullMsg);
+        if (user.role === 'doctor') {
+          await query(`UPDATE appointments SET first_response_at=COALESCE(first_response_at, NOW()) WHERE id=$1`, [appointmentId]).catch(() => {});
+        }
       } catch (err) {
         logger.error('send_message error', { error: (err as Error).message });
       }
@@ -152,6 +155,9 @@ export function initSocketServer(httpServer: HttpServer) {
     // Video room signaling
     socket.on('join_video_room', ({ roomId, sessionId, userId }: { roomId: string; sessionId: string; userId: string }) => {
       socket.join(`video:${roomId}`);
+      if (user.role === 'doctor' && /^[0-9a-f-]{36}$/i.test(String(roomId))) {
+        query(`UPDATE appointments SET consultation_started_at=COALESCE(consultation_started_at, NOW()), first_response_at=COALESCE(first_response_at, NOW()) WHERE id=$1`, [roomId]).catch(() => {});
+      }
       // Tell new peer about existing peers in room
       const room = io.sockets.adapter.rooms.get(`video:${roomId}`);
       const peers: { sessionId: string; userId: string }[] = [];

@@ -72,131 +72,82 @@ async function sendAppointmentEmail(params: {
 export const AppointmentsService = {
   async book(patientId: string, body: {
     doctor_id: string; appt_date: string; appt_time: string;
-    consult_type: string; payment_method: string; is_emergency?: boolean;
-  }) {
+    consult_type: string; payment_method?: string; is_emergency?: boolean;
+  }, opts: { instant?: boolean } = {}) {
     // Emergency booking was removed: emergencies are directed to 112 and in-person care.
     if (body.is_emergency) {
       throw new AppError(422, 'EMERGENCY_NOT_SUPPORTED', 'For a medical emergency call 112 or go to the nearest emergency department. Online consultations are not for emergencies.');
     }
-    {
+    const consultType = ['video', 'phone', 'chat', 'clinic'].includes(body.consult_type) ? body.consult_type : 'video';
+    const doctor = await queryOne<{ id: string }>(
+      `SELECT d.id FROM doctors d JOIN users u ON u.id=d.user_id WHERE d.id=$1 AND d.profile_status='verified' AND u.is_active=TRUE`, [body.doctor_id]);
+    if (!doctor) throw new AppError(404, 'DOCTOR_UNAVAILABLE', 'This doctor is not available for booking.');
+    const patient = await queryOne<{ user_id: string }>('SELECT user_id FROM patients WHERE id=$1', [patientId]);
+    if (!patient) throw new AppError(404, 'NOT_FOUND', 'Patient profile not found.');
+
+    if (!opts.instant) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.appt_date)) || !/^\d{2}:\d{2}/.test(String(body.appt_time))) throw new AppError(400, 'INVALID', 'Choose a valid date and time.');
+      const start = new Date(`${body.appt_date}T${String(body.appt_time).slice(0, 5)}:00+05:30`).getTime();
+      if (start < Date.now()) throw new AppError(400, 'IN_PAST', 'That time has already passed.');
       const conflict = await queryOne(
         `SELECT id FROM appointments WHERE doctor_id=$1 AND appt_date=$2 AND appt_time=$3
-         AND status NOT IN ('cancelled','no_show')`,
-        [body.doctor_id, body.appt_date, body.appt_time]
-      );
+           AND status NOT IN ('cancelled','no_show')
+           AND NOT (status='pending_payment' AND hold_expires_at < NOW())`,
+        [body.doctor_id, body.appt_date, body.appt_time]);
       if (conflict) throw new AppError(409, 'SLOT_UNAVAILABLE', 'This slot is no longer available.');
     }
 
-    // Get fee — emergency = 1.5x video fee
-    let fee = await queryOne<{ fee_amount: number; currency: string }>(
-      'SELECT fee_amount, currency FROM consultation_fees WHERE doctor_id=$1 AND consult_type=$2',
-      [body.doctor_id, body.consult_type]
-    );
+    const { quote, attachPayment, checkoutFor, getSettings } = await import('../billing/billing.service');
+    const q = await quote(patient.user_id, body.doctor_id, consultType);
+    const s = await getSettings();
+    const requires = q.payments_enabled && q.total_paise > 0;
 
-    if (!fee && body.is_emergency) {
-      fee = await queryOne<{ fee_amount: number; currency: string }>(
-        'SELECT fee_amount, currency FROM consultation_fees WHERE doctor_id=$1 AND consult_type=\'video\'',
-        [body.doctor_id]
-      );
-    }
-
-    // Fallback to platform_fees if doctor hasn't set their own fee
-    if (!fee) {
-      const doctor = await queryOne<{ medical_system: string }>(
-        'SELECT medical_system FROM doctors WHERE id=$1', [body.doctor_id]
-      );
-      if (doctor) {
-        const platformFee = await queryOne<{ fee: number }>(
-          'SELECT fee FROM platform_fees WHERE medical_system=$1 AND consult_type=$2',
-          [doctor.medical_system, body.consult_type || 'video']
-        );
-        if (platformFee) fee = { fee_amount: platformFee.fee, currency: 'INR' };
-      }
-    }
-
-    if (!fee) throw new AppError(400, 'NO_FEE_SET', 'Doctor has not set a fee for this consultation type.');
-
-    const feeAmount = body.is_emergency ? Math.round(fee.fee_amount * 1.5) : fee.fee_amount;
-
-    const result = await withTransaction(async (client) => {
-      // Create payment record
-      let rzpOrderId = `dev_order_${Date.now()}`;
-      if (env.razorpay.keyId && env.razorpay.keyId !== 'placeholder') {
-        try {
-          const rzpOrder = await razorpay.orders.create({
-            amount: feeAmount, currency: fee!.currency, receipt: `wc_${Date.now()}`,
-          });
-          rzpOrderId = rzpOrder.id;
-        } catch { /* use dev order id */ }
-      }
-
-      const [payment] = await client.query(
-        `INSERT INTO payments (patient_id, doctor_id, amount, currency, gateway, status)
-         VALUES ($1,$2,$3,$4,'razorpay','pending') RETURNING id`,
-        [patientId, body.doctor_id, feeAmount, fee!.currency]
-      ).then(r => r.rows);
-
+    const appointmentId = await withTransaction(async (client) => {
       const [appt] = await client.query(
-        `INSERT INTO appointments (doctor_id, patient_id, appt_date, appt_time, consult_type, payment_id, status)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, status`,
-        [body.doctor_id, patientId, body.appt_date, body.appt_time, body.consult_type, payment.id,
-         body.is_emergency ? 'confirmed' : 'booked']
+        `INSERT INTO appointments (doctor_id, patient_id, appt_date, appt_time, consult_type, status, is_instant, instant_deadline)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [body.doctor_id, patientId, body.appt_date, body.appt_time, consultType,
+         requires ? 'pending_payment' : 'booked', !!opts.instant,
+         !requires && opts.instant ? new Date(Date.now() + s.instant_sla_minutes * 60000) : null]
       ).then(r => r.rows);
-
-      await client.query('UPDATE payments SET appointment_id=$1 WHERE id=$2', [appt.id, payment.id]);
-
-      return { appointment_id: appt.id, status: appt.status, payment_id: payment.id, rzpOrderId, feeAmount, currency: fee!.currency };
+      await attachPayment(client, { id: appt.id, patient_id: patientId, doctor_id: body.doctor_id }, q);
+      return appt.id as string;
     });
 
-    // Send emails async — fire and forget
-    setImmediate(async () => { try {
-      const [apptDetails] = await query(
-        `SELECT a.appt_date, a.appt_time, a.consult_type,
-                pu.full_name AS patient_name, pu.email AS patient_email,
+    let payment: any = { required: false };
+    if (requires) {
+      try { payment = await checkoutFor(appointmentId, patient.user_id); }
+      catch (e: any) { payment = { required: true, error: e?.message || 'Could not start payment. Try again from Appointments.' }; }
+    } else {
+      setImmediate(() => this.notifyBookedEmails(appointmentId).catch(() => {}));
+      if (opts.instant) setImmediate(async () => {
+        try {
+          const { io } = await import('../chat/chat.gateway');
+          const [pn] = await query(`SELECT u.full_name FROM patients p JOIN users u ON u.id=p.user_id WHERE p.id=$1`, [patientId]) as any[];
+          io?.to(`doctor:${body.doctor_id}`).emit('instant_consult_incoming', { appointmentId, patientName: pn?.full_name, consultType });
+        } catch { /* optional */ }
+      });
+    }
+
+    return { appointment_id: appointmentId, status: requires ? 'pending_payment' : 'booked', quote: q, payment };
+  },
+
+  async notifyBookedEmails(appointmentId: string) {
+    try {
+      const [d] = await query(
+        `SELECT a.appt_date, a.appt_time, a.consult_type, pu.full_name AS patient_name, pu.email AS patient_email,
                 du.full_name AS doctor_name, du.email AS doctor_email
-         FROM appointments a
-         JOIN patients p ON p.id = a.patient_id
-         JOIN users pu ON pu.id = p.user_id
-         JOIN doctors d ON d.id = a.doctor_id
-         JOIN users du ON du.id = d.user_id
-         WHERE a.id = $1`,
-        [result.appointment_id]
-      ) as any[];
-
-      if (apptDetails) {
-        // Email to patient
+         FROM appointments a JOIN patients p ON p.id = a.patient_id JOIN users pu ON pu.id = p.user_id
+         JOIN doctors d ON d.id = a.doctor_id JOIN users du ON du.id = d.user_id WHERE a.id = $1`, [appointmentId]) as any[];
+      if (!d) return;
+      for (const role of ['patient', 'doctor'] as const) {
         await sendAppointmentEmail({
-          to: apptDetails.patient_email, name: apptDetails.patient_name,
-          role: 'patient', doctorName: apptDetails.doctor_name,
-          patientName: apptDetails.patient_name, date: apptDetails.appt_date,
-          time: apptDetails.appt_time, type: apptDetails.consult_type,
-          isEmergency: body.is_emergency, action: 'booked',
-        });
-
-        // Email to doctor
-        await sendAppointmentEmail({
-          to: apptDetails.doctor_email, name: apptDetails.doctor_name,
-          role: 'doctor', doctorName: apptDetails.doctor_name,
-          patientName: apptDetails.patient_name, date: apptDetails.appt_date,
-          time: apptDetails.appt_time, type: apptDetails.consult_type,
-          isEmergency: body.is_emergency, action: 'booked',
+          to: role === 'patient' ? d.patient_email : d.doctor_email, name: role === 'patient' ? d.patient_name : d.doctor_name,
+          role, doctorName: d.doctor_name, patientName: d.patient_name, date: d.appt_date, time: d.appt_time,
+          type: d.consult_type, action: 'booked',
         });
       }
-    } catch (err) {
-      logger.error('Failed to send appointment emails', { error: (err as Error).message });
-    }});
-
-    return {
-      appointment_id: result.appointment_id,
-      status:         result.status,
-      payment: {
-        payment_id:       result.payment_id,
-        gateway:          'razorpay',
-        razorpay_order_id: result.rzpOrderId,
-        amount:           result.feeAmount,
-        currency:         result.currency,
-      },
-    };
+    } catch (err) { logger.error('Failed to send appointment emails', { error: (err as Error).message }); }
   },
 
   async getById(appointmentId: string) {

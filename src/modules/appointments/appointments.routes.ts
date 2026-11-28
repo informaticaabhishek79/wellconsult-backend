@@ -25,7 +25,8 @@ sendSuccess(res, await AppointmentsService.getById(req.params.id));
 
 router.patch('/:id/cancel', authenticate, async (req, res, next) => {
   try {
-    sendSuccess(res, await AppointmentsService.cancel(req.params.id, req.body.reason));
+    const { cancelWithPolicy } = await import('../billing/billing.service');
+    sendSuccess(res, await cancelWithPolicy(req.params.id, { role: req.user!.role, userId: req.user!.sub, doctorId: req.user!.doctorId as any }, req.body?.reason));
   } catch (e) { next(e); }
 });
 

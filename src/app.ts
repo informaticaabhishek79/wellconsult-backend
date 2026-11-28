@@ -25,6 +25,8 @@ import legalRoutes from './modules/admin/legal.routes';
 import chatRoutes from './modules/chat/chat.routes';
 import chatbotRoutes from './modules/chatbot/chatbot.routes';
 import placesRoutes from './modules/places/places.routes';
+import billingRoutes from './modules/billing/billing.routes';
+import instantRoutes from './modules/billing/instant.routes';
 import agentsRoutes from './modules/agents/agents.routes';
 import subscriptionRoutes from './modules/subscriptions/subscriptions.routes';
 import paymentRoutes from './modules/payments/payments.routes';
@@ -41,7 +43,7 @@ app.use(cors({
   methods:     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }));
 app.use(compression());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb', verify: (req: any, _res, buf) => { req.rawBody = buf; } }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(requestLogger);
@@ -68,6 +70,8 @@ app.use(`${base}/legal`, legalRoutes);
 app.use(`${base}/chat`, chatRoutes);
 app.use(`${base}/chatbot`, chatbotRoutes);
 app.use(`${base}/places`, placesRoutes);
+app.use(`${base}/billing`, billingRoutes);
+app.use(`${base}/instant`, instantRoutes);
 app.use(`${base}/agents`, agentsRoutes);
 app.use(`${base}/subscriptions`, subscriptionRoutes);
 app.use(`${base}/payments`, paymentRoutes);

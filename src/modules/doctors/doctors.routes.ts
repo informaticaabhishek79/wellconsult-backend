@@ -1,3 +1,4 @@
+import { AppError } from '../../middleware/errorHandler';
 import { Router } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
@@ -82,12 +83,12 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
   try {
     const { query } = await import('../../config/database');
     const appointments = await query(
-      `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status,
+      `SELECT a.id, a.appt_date, a.appt_time, a.consult_type, a.status, a.payment_status, a.is_instant, a.instant_deadline,
               u.full_name AS patient_name, p.id AS patient_id
        FROM appointments a
        JOIN patients p ON p.id = a.patient_id
        JOIN users u ON u.id = p.user_id
-       WHERE a.doctor_id = $1
+       WHERE a.doctor_id = $1 AND a.status <> 'pending_payment'
        ORDER BY a.appt_date DESC, a.appt_time DESC`,
       [req.user!.doctorId]
     );
@@ -97,7 +98,11 @@ router.get('/me/appointments', authenticate, authorize('doctor'), async (req, re
 
 router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
-    await query("UPDATE appointments SET status='confirmed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    const upd = await query(
+      `UPDATE appointments SET status='confirmed', accepted_at=COALESCE(accepted_at, NOW())
+       WHERE id=$1 AND doctor_id=$2 AND status='booked' AND payment_status IN ('paid','not_required') RETURNING id`,
+      [req.params.id, req.user!.doctorId]) as any[];
+    if (!upd.length) throw new AppError(409, 'CANNOT_CONFIRM', 'Only paid, booked appointments can be confirmed.');
     setImmediate(async () => {
       try {
         const { notifyAppointmentConfirmed } = await import('../../services/notifications');
@@ -125,7 +130,10 @@ router.patch('/me/appointments/:id/confirm', authenticate, authorize('doctor'), 
 router.patch('/me/appointments/:id/complete', authenticate, authorize('doctor'), async (req, res, next) => {
   try {
     const { query } = await import('../../config/database');
-    await query("UPDATE appointments SET status='completed' WHERE id=$1 AND doctor_id=$2", [req.params.id, req.user!.doctorId]);
+    const done = await query("UPDATE appointments SET status='completed' WHERE id=$1 AND doctor_id=$2 AND status IN ('booked','confirmed') AND payment_status IN ('paid','not_required') RETURNING id", [req.params.id, req.user!.doctorId]) as any[];
+    if (!done.length) throw new AppError(409, 'CANNOT_COMPLETE', 'Only paid, booked or confirmed appointments can be completed.');
+    const { creditDoctor } = await import('../billing/billing.service');
+    await creditDoctor(req.params.id);
     sendSuccess(res, { message: 'Appointment completed' });
   } catch (e) { next(e); }
 });

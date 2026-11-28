@@ -151,54 +151,16 @@ export function startScheduler(): void {
     }
   });
 
-  // ── SLA Enforcement: instant consultations only (scheduled appointments are never auto-cancelled) ──
-  cron.schedule('*/5 * * * *', async () => { // runs every 5 minutes
-    try {
-      const rows = await query<{
-        id: string; patient_id: string; doctor_id: string;
-        patient_phone: string; doctor_name: string; appt_date: string; appt_time: string;
-      }>(
-        `SELECT a.id, a.patient_id, a.doctor_id,
-                u.phone AS patient_phone,
-                du.full_name AS doctor_name,
-                a.appt_date, a.appt_time
-         FROM appointments a
-         JOIN patients pt ON pt.id = a.patient_id
-         JOIN users u ON u.id = pt.user_id
-         JOIN doctors d ON d.id = a.doctor_id
-         JOIN users du ON du.id = d.user_id
-         WHERE a.status = 'booked'
-           AND a.is_instant = TRUE
-           AND a.booked_at < NOW() - INTERVAL '15 minutes'`
-      );
+  // ── Payments & instant consultations: release unpaid holds, escalate, breach + refund (every minute) ──
+  cron.schedule('* * * * *', async () => {
+    try { const { runInstantJobs } = await import('../modules/billing/instant.jobs'); await runInstantJobs(); }
+    catch (err) { logger.error('[Scheduler] Instant jobs error', { error: (err as Error).message }); }
+  });
 
-      for (const row of rows) {
-        // Auto-cancel and mark for refund
-        await query(
-          `UPDATE appointments SET status='cancelled', cancelled_by='system',
-           cancellation_reason='Doctor did not confirm within 15 minutes. Auto-refunded.'
-           WHERE id=$1`,
-          [row.id]
-        );
-
-        // Notify patient via SMS/WhatsApp
-        const { notifyAppointmentCancelled } = await import('../services/notifications');
-        await notifyAppointmentCancelled({
-          phone: row.patient_phone,
-          date: String(row.appt_date).slice(0, 10),
-          time: String(row.appt_time).slice(0, 5),
-          reason: 'Doctor did not confirm in time. Full refund will be processed within 5-7 business days.',
-        });
-
-        logger.info('[Scheduler] SLA breach - auto cancelled appointment', { appointmentId: row.id });
-      }
-
-      if (rows.length > 0) {
-        logger.info(`[Scheduler] SLA enforcement: ${rows.length} appointments auto-cancelled`);
-      }
-    } catch (err) {
-      logger.error('[Scheduler] SLA enforcement error', { error: (err as Error).message });
-    }
+  // ── Retry failed refunds (every 30 minutes) ──
+  cron.schedule('*/30 * * * *', async () => {
+    try { const { retryFailedRefunds } = await import('../modules/billing/instant.jobs'); await retryFailedRefunds(); }
+    catch (err) { logger.error('[Scheduler] Refund retry error', { error: (err as Error).message }); }
   });
 
   // ── SMS/WhatsApp 1-hour reminder (runs every hour) ────
