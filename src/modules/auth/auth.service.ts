@@ -6,13 +6,11 @@ import { generateOtp, OTP_TTL_SECONDS } from '../../utils/otp';
 import { AppError } from '../../middleware/errorHandler';
 import { User } from '../../types';
 import { logger } from '../../utils/logger';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY || '');
+import { mailer as resend, mailConfigured, mailProvider } from '../../utils/mailer';
 
 async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpose: string) {
-  if (!process.env.RESEND_API_KEY) {
-    logger.warn('RESEND_API_KEY not set — skipping OTP email');
+  if (!mailConfigured) {
+    logger.warn('No email provider configured — skipping OTP email');
     return;
   }
   const subject = purpose === 'password_reset'
@@ -42,7 +40,7 @@ async function sendOtpEmail(toEmail: string, toName: string, otp: string, purpos
         </div>
       `,
     });
-    if (sendRes && sendRes.error) logger.error('Resend send failed', { error: sendRes.error });
+    if (sendRes && sendRes.error) { logger.error('OTP email failed', { provider: mailProvider, error: sendRes.error }); return; }
     logger.info('OTP email sent via Resend', { to: toEmail, purpose });
   } catch (err) {
     logger.error('Resend email failed', { error: (err as Error).message });

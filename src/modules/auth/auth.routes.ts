@@ -50,7 +50,7 @@ router.post('/resend-verification', otpLimiter, async (req, res, next) => {
 router.post('/forgot-password', authLimiter, async (req, res, next) => {
   try {
     const { query, queryOne } = await import('../../config/database');
-    const { Resend } = await import('resend');
+    const { mailer: resend } = await import('../../utils/mailer');
     const { logger } = await import('../../utils/logger');
     const { email } = req.body;
 
@@ -79,11 +79,10 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
 
     const appUrl = (process.env.APP_URL || 'https://doctors.deemona.com').replace(/\/$/, '');
     const resetUrl = `${appUrl}/?reset_token=${token}&user_id=${user.id}`;
-    const resend = new Resend(process.env.RESEND_API_KEY || '');
 
     setImmediate(async () => {
       try {
-        await resend.emails.send({
+        const r = await resend.emails.send({
           from: 'Deemona Doctors <noreply@mail.deemona.com>',
           to: user.email,
           subject: 'Reset your Deemona Doctors password',
@@ -99,6 +98,8 @@ router.post('/forgot-password', authLimiter, async (req, res, next) => {
             '</div>',
           ].join(''),
         });
+        if (r?.error) logger.error('Password reset email failed', { error: r.error.message });
+        else logger.info('Password reset email sent', { userId: user.id });
       } catch (err) {
         logger.error('Password reset email failed', { error: (err as Error).message });
       }

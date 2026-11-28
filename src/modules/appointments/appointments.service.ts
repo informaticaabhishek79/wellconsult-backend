@@ -5,9 +5,7 @@ import { Request } from 'express';
 import Razorpay from 'razorpay';
 import { env } from '../../config/env';
 import { logger } from '../../utils/logger';
-import { Resend } from 'resend';
-
-const resend = new Resend(process.env.RESEND_API_KEY || '');
+import { mailer as resend } from '../../utils/mailer';
 
 const razorpay = new Razorpay({
   key_id:     env.razorpay.keyId     || 'placeholder',
@@ -44,7 +42,7 @@ async function sendAppointmentEmail(params: {
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#fff">
           <div style="margin-bottom:24px">
-            <span style="font-size:20px;font-weight:800;color:#1A1A18">Well<span style="color:#0A7B6C">Consult</span></span>
+            <span style="font-size:20px;font-weight:800;color:#1A1A18">Deemona <span style="color:#0A7B6C">Doctors</span></span>
           </div>
           ${isEmergency ? '<div style="background:#FEE2E2;border-radius:8px;padding:10px 16px;margin-bottom:16px;font-weight:700;color:#991B1B">⚡ Emergency consultation</div>' : ''}
           <h2 style="font-size:22px;font-weight:800;color:#1A1A18;margin:0 0 8px">
