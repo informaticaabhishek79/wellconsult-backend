@@ -77,21 +77,34 @@ export const DoctorsService = {
   },
 
   async getAvailability(doctorId: string, date: string) {
-    const dayOfWeek = new Date(date).getDay();
-    const slots = await query(
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) date = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+    const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
+    const slots = await query<any>(
       `SELECT da.slot_start, da.slot_end,
               EXISTS (
                 SELECT 1 FROM appointments a
                 WHERE a.doctor_id = $1 AND a.appt_date = $2
                   AND a.appt_time = da.slot_start
                   AND a.status NOT IN ('cancelled','no_show')
+                  AND NOT (a.status = 'pending_payment' AND a.hold_expires_at < NOW())
               ) AS is_booked
        FROM doctor_availability da
        WHERE da.doctor_id = $1 AND da.day_of_week = $3 AND da.is_active = TRUE
        ORDER BY da.slot_start`,
       [doctorId, date, dayOfWeek]
     );
-    return { doctor_id: doctorId, date, available_slots: slots };
+    // Days or hours off, and times already past today (IST), are not bookable.
+    const off = await query<any>('SELECT from_time::text, to_time::text FROM doctor_time_off WHERE doctor_id=$1 AND off_date=$2', [doctorId, date]).catch(() => []);
+    const nowIst = new Date(Date.now() + 330 * 60000);
+    const isToday = nowIst.toISOString().slice(0, 10) === date;
+    const nowHHMM = nowIst.toISOString().slice(11, 16);
+    const available_slots = slots.filter(s => {
+      const t = String(s.slot_start).slice(0, 5);
+      if (off.some((o: any) => !o.from_time || (t >= o.from_time.slice(0, 5) && t < o.to_time.slice(0, 5)))) return false;
+      if (isToday && t <= nowHHMM) return false;
+      return true;
+    });
+    return { doctor_id: doctorId, date, day_off: off.some((o: any) => !o.from_time), available_slots };
   },
 
   async updateProfile(doctorId: string, body: Record<string, unknown>) {

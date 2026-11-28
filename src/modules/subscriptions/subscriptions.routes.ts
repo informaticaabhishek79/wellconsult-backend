@@ -24,7 +24,7 @@ router.get('/me', authenticate, async (req, res, next) => {
   try {
     const sub = await queryOne(
       `SELECT * FROM subscriptions WHERE user_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1`,
-      [req.user!.sub]
+      [(req.user!.actingOwner || req.user!.sub)]
     );
     sendSuccess(res, sub || { plan: 'free', status: 'active' });
   } catch (e) { next(e); }
@@ -86,7 +86,7 @@ router.post('/create', authenticate, async (req, res, next) => {
     const planConfig = PLANS[plan];
     const user = await queryOne<{ email: string; full_name: string; phone: string }>(
       'SELECT email, full_name, phone FROM users WHERE id=$1',
-      [req.user!.sub]
+      [(req.user!.actingOwner || req.user!.sub)]
     );
     if (!user) throw new AppError(404, 'NOT_FOUND', 'User not found.');
 
@@ -97,7 +97,7 @@ router.post('/create', authenticate, async (req, res, next) => {
       quantity: 1,
       total_count: 12, // 12 months
       notes: {
-        user_id: req.user!.sub,
+        user_id: (req.user!.actingOwner || req.user!.sub),
         plan,
         user_name: user.full_name,
       },
@@ -109,7 +109,7 @@ router.post('/create', authenticate, async (req, res, next) => {
        VALUES ($1,$2,$3,'created',$4,NOW(), NOW() + INTERVAL '1 month')
        ON CONFLICT (user_id) DO UPDATE SET
          plan=$2, razorpay_subscription_id=$3, status='created', amount=$4, updated_at=NOW()`,
-      [req.user!.sub, plan, subscription.id, planConfig.price]
+      [(req.user!.actingOwner || req.user!.sub), plan, subscription.id, planConfig.price]
     );
 
     sendSuccess(res, {
@@ -172,14 +172,14 @@ router.post('/cancel', authenticate, async (req, res, next) => {
   try {
     const sub = await queryOne<{ razorpay_subscription_id: string }>(
       `SELECT razorpay_subscription_id FROM subscriptions WHERE user_id=$1 AND status='active'`,
-      [req.user!.sub]
+      [(req.user!.actingOwner || req.user!.sub)]
     );
     if (!sub) throw new AppError(404, 'NOT_FOUND', 'No active subscription found.');
 
     await (razorpay.subscriptions as any).cancel(sub.razorpay_subscription_id, { cancel_at_cycle_end: 1 });
     await query(
       `UPDATE subscriptions SET status='cancelling', updated_at=NOW() WHERE user_id=$1 AND status='active'`,
-      [req.user!.sub]
+      [(req.user!.actingOwner || req.user!.sub)]
     );
 
     sendSuccess(res, { message: 'Subscription will be cancelled at end of current billing cycle.' });

@@ -27,7 +27,14 @@ interface SendParams {
 
 export const NotificationService = {
   async send(params: SendParams): Promise<void> {
-    const { userId, type, title, body, refType, refId, fcmToken } = params;
+    let { userId, title, fcmToken } = params;
+    const { type, body, refType, refId } = params;
+    // A family member has no login: their notifications go to the account holder, labelled with their name.
+    const fam = await query<{ owner_user_id: string; full_name: string; fcm_token?: string }>(
+      `SELECT fm.owner_user_id, mu.full_name, ou.fcm_token FROM family_members fm
+       JOIN users mu ON mu.id = fm.member_user_id JOIN users ou ON ou.id = fm.owner_user_id
+       WHERE fm.member_user_id = $1 LIMIT 1`, [userId]).catch(() => [] as any[]);
+    if (fam[0]) { userId = fam[0].owner_user_id; title = `${fam[0].full_name}: ${title}`; fcmToken = fam[0].fcm_token || undefined; }
 
     // 1. Persist to DB
     await query(

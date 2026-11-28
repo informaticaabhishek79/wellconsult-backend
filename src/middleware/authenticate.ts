@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, JwtPayload } from '../utils/jwt';
 import { sendError } from '../utils/apiResponse';
 import { redis } from '../config/redis';
+import { resolveActAs } from '../modules/family/family.service';
 
 declare global {
   namespace Express {
@@ -33,7 +34,13 @@ export async function authenticate(
       return;
     }
 
-    req.user = payload;
+    const actAs = req.headers['x-act-as'];
+    try {
+      req.user = await resolveActAs(payload, typeof actAs === 'string' ? actAs : undefined);
+    } catch (e: any) {
+      sendError(res, 403, 'ACT_AS_DENIED', e?.message || 'You cannot act for this person.');
+      return;
+    }
     next();
   } catch {
     sendError(res, 401, 'INVALID_TOKEN', 'Token is invalid or expired.');

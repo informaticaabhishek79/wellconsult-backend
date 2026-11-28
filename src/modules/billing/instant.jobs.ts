@@ -1,3 +1,4 @@
+import { patientEmailSql } from '../family/family.service';
 import { query, queryOne } from '../../config/database';
 import { redis } from '../../config/redis';
 import { logger } from '../../utils/logger';
@@ -53,7 +54,7 @@ export async function runInstantJobs() {
 
   // 3. Breach: not accepted by the deadline → cancel, log, refund in full
   const breached = await query<any>(
-    `SELECT a.id, a.doctor_id, a.instant_deadline, a.escalation_level, pu.email, pu.full_name
+    `SELECT a.id, a.doctor_id, a.instant_deadline, a.escalation_level, ${patientEmailSql('pu')} AS email, pu.full_name
      FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users pu ON pu.id=p.user_id
      WHERE a.is_instant AND a.status='booked' AND a.accepted_at IS NULL AND a.instant_deadline <= NOW()`);
   for (const b of breached) {

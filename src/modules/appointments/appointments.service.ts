@@ -1,3 +1,4 @@
+import { patientEmailSql } from '../family/family.service';
 import { query, queryOne, withTransaction } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
 import { getPagination } from '../../utils/pagination';
@@ -95,6 +96,12 @@ export const AppointmentsService = {
            AND NOT (status='pending_payment' AND hold_expires_at < NOW())`,
         [body.doctor_id, body.appt_date, body.appt_time]);
       if (conflict) throw new AppError(409, 'SLOT_UNAVAILABLE', 'This slot is no longer available.');
+      // The time must be one of the doctor's open slots (working hours, not on leave).
+      const { DoctorsService } = await import('../doctors/doctors.service');
+      const av = await DoctorsService.getAvailability(body.doctor_id, String(body.appt_date));
+      const t = String(body.appt_time).slice(0, 5);
+      if (!av.available_slots.some((x: any) => String(x.slot_start).slice(0, 5) === t && !x.is_booked))
+        throw new AppError(409, 'SLOT_UNAVAILABLE', 'The doctor is not available at this time. Please pick another slot.');
     }
 
     const { quote, attachPayment, checkoutFor, getSettings } = await import('../billing/billing.service');
@@ -105,7 +112,8 @@ export const AppointmentsService = {
     const appointmentId = await withTransaction(async (client) => {
       if (q.credit_applied) {
         // Serialise this patient's credit use so two quick bookings can't both take the last free consultation.
-        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [patient.user_id]);
+        const { ownerOf } = await import('../family/family.service');
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [await ownerOf(patient.user_id)]);
         const { planCredit } = await import('../billing/billing.service');
         const c = await planCredit(patient.user_id, q.plan, consultType, s, client);
         if (c.used >= c.allowed) throw new AppError(409, 'CREDIT_USED', 'Your free consultation for this month was just used. Please review the new price and book again.');
@@ -142,7 +150,7 @@ export const AppointmentsService = {
   async notifyBookedEmails(appointmentId: string) {
     try {
       const [d] = await query(
-        `SELECT a.appt_date, a.appt_time, a.consult_type, pu.full_name AS patient_name, pu.email AS patient_email,
+        `SELECT a.appt_date, a.appt_time, a.consult_type, pu.full_name AS patient_name, ${patientEmailSql('pu')} AS patient_email,
                 du.full_name AS doctor_name, du.email AS doctor_email
          FROM appointments a JOIN patients p ON p.id = a.patient_id JOIN users pu ON pu.id = p.user_id
          JOIN doctors d ON d.id = a.doctor_id JOIN users du ON du.id = d.user_id WHERE a.id = $1`, [appointmentId]) as any[];
@@ -194,7 +202,7 @@ export const AppointmentsService = {
     setImmediate(async () => { try {
       const [details] = await query(
         `SELECT a.appt_date, a.appt_time, a.consult_type,
-                pu.full_name AS patient_name, pu.email AS patient_email,
+                pu.full_name AS patient_name, ${patientEmailSql('pu')} AS patient_email,
                 du.full_name AS doctor_name, du.email AS doctor_email
          FROM appointments a
          JOIN patients p ON p.id = a.patient_id

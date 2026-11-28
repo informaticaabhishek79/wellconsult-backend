@@ -6,6 +6,7 @@ export interface JwtPayload {
   role: string;
   doctorId?: string;
   patientId?: string;
+  actingOwner?: string; // set when a patient acts for a family member (sub = member)
 }
 
 export function signAccessToken(payload: JwtPayload): string {

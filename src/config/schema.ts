@@ -199,6 +199,82 @@ const STATEMENTS = [
      warnings JSONB NOT NULL,
      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
    )`,
+  // ── Phase 3 ──────────────────────────────────────────────────────────────
+  `CREATE TABLE IF NOT EXISTS family_members (
+     id BIGSERIAL PRIMARY KEY,
+     owner_user_id UUID NOT NULL,
+     member_user_id UUID NOT NULL UNIQUE,
+     relation TEXT NOT NULL DEFAULT 'other',
+     consent_type TEXT NOT NULL,
+     consent_text TEXT NOT NULL,
+     consent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     consent_ip TEXT,
+     active BOOLEAN NOT NULL DEFAULT TRUE,
+     removed_at TIMESTAMPTZ,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_family_owner ON family_members(owner_user_id)`,
+  `CREATE TABLE IF NOT EXISTS health_readings (
+     id BIGSERIAL PRIMARY KEY,
+     patient_id UUID NOT NULL,
+     kind TEXT NOT NULL,
+     value NUMERIC NOT NULL,
+     value2 NUMERIC,
+     context TEXT,
+     note TEXT,
+     taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     source TEXT NOT NULL DEFAULT 'manual',
+     source_ref TEXT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_readings_patient ON health_readings(patient_id, kind, taken_at DESC)`,
+  `ALTER TABLE doctors ADD COLUMN IF NOT EXISTS slot_minutes INT NOT NULL DEFAULT 30`,
+  `CREATE TABLE IF NOT EXISTS doctor_time_off (
+     id BIGSERIAL PRIMARY KEY,
+     doctor_id UUID NOT NULL,
+     off_date DATE NOT NULL,
+     from_time TIME,
+     to_time TIME,
+     reason TEXT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_timeoff_doctor ON doctor_time_off(doctor_id, off_date)`,
+  `CREATE TABLE IF NOT EXISTS complaints (
+     id BIGSERIAL PRIMARY KEY,
+     ref TEXT NOT NULL UNIQUE,
+     user_id UUID NOT NULL,
+     role TEXT NOT NULL,
+     appointment_id UUID,
+     category TEXT NOT NULL,
+     subject TEXT NOT NULL,
+     description TEXT NOT NULL,
+     status TEXT NOT NULL DEFAULT 'open',
+     priority TEXT NOT NULL DEFAULT 'normal',
+     ack_due_at TIMESTAMPTZ NOT NULL,
+     resolve_due_at TIMESTAMPTZ NOT NULL,
+     first_response_at TIMESTAMPTZ,
+     resolved_at TIMESTAMPTZ,
+     rating INT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS complaint_messages (
+     id BIGSERIAL PRIMARY KEY,
+     complaint_id BIGINT NOT NULL REFERENCES complaints(id) ON DELETE CASCADE,
+     author_id UUID NOT NULL,
+     author_role TEXT NOT NULL,
+     body TEXT NOT NULL,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS app_feedback (
+     id BIGSERIAL PRIMARY KEY,
+     user_id UUID NOT NULL,
+     role TEXT NOT NULL,
+     score INT NOT NULL,
+     comment TEXT,
+     page TEXT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
 ];
 
 export async function ensureSchema() {

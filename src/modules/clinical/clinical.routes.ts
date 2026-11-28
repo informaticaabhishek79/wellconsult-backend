@@ -1,3 +1,4 @@
+import { patientEmailSql } from '../family/family.service';
 import { Router } from 'express';
 import { authenticate } from '../../middleware/authenticate';
 import { authorize } from '../../middleware/authorize';
@@ -29,7 +30,7 @@ async function patientIdFor(userId: string) {
 /** Loads an appointment the caller is part of (its patient or its doctor). */
 async function apptFor(id: string, user: any) {
   const a = await queryOne<any>(
-    `SELECT a.*, pu.id AS patient_user_id, pu.full_name AS patient_name, pu.email AS patient_email, pu.fcm_token AS patient_fcm,
+    `SELECT a.*, pu.id AS patient_user_id, pu.full_name AS patient_name, ${patientEmailSql('pu')} AS patient_email, pu.fcm_token AS patient_fcm,
             du.full_name AS doctor_name, d.medical_system
      FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users pu ON pu.id=p.user_id
      JOIN doctors d ON d.id=a.doctor_id JOIN users du ON du.id=d.user_id WHERE a.id=$1`, [id]);
@@ -123,6 +124,10 @@ router.put('/appointments/:id/assessment', authorize('patient'), async (req, res
        RETURNING *`,
       [a.id, a.patient_id, complaint, s(b.duration, 100), Number.isFinite(sev) ? Math.min(10, Math.max(1, Math.round(sev))) : null,
        JSON.stringify(symptoms), s(b.current_medicines, 1000), JSON.stringify(allergies), JSON.stringify(vitals), s(b.notes, 2000), JSON.stringify(flags)]);
+
+    // Readings typed here also go into the health tracker.
+    const { saveVitalsAsReadings } = await import('./readings.routes');
+    await saveVitalsAsReadings(a.patient_id, a.id, vitals).catch(() => {});
 
     // Keep the health profile in step: allergies the patient adds here become part of their record.
     if (allergies.length) {

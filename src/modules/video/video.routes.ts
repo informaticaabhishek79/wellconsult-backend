@@ -7,6 +7,15 @@ import { logger } from '../../utils/logger';
 
 const router = Router();
 
+// Doctor: patients sitting in the video waiting room right now.
+router.get('/waiting', authenticate, async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'doctor') throw new AppError(403, 'FORBIDDEN', 'Doctors only.');
+    const { waitingFor } = await import('../chat/chat.gateway');
+    sendSuccess(res, waitingFor(req.user!.doctorId!));
+  } catch (e) { next(e); }
+});
+
 const CF_APP_ID    = process.env.CF_CALLS_APP_ID || '';
 const CF_APP_TOKEN = process.env.CF_CALLS_APP_TOKEN || '';
 const CF_BASE      = `https://rtc.live.cloudflare.com/v1/apps/${CF_APP_ID}`;

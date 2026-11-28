@@ -1,3 +1,4 @@
+import { patientEmailSql } from '../family/family.service';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { query, queryOne, withTransaction } from '../../config/database';
@@ -60,8 +61,11 @@ export async function baseFeePaise(doctorId: string, consultType: string): Promi
 export async function quote(userId: string, doctorId: string, consultType: string) {
   const s = await getSettings();
   const fee = await baseFeePaise(doctorId, consultType);
+  // Family members share the account holder's plan.
+  const { ownerOf } = await import('../family/family.service');
+  const planUser = await ownerOf(userId);
   const sub = await queryOne<{ plan: string }>(
-    `SELECT plan FROM subscriptions WHERE user_id=$1 AND status='active' AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [userId]).catch(() => null);
+    `SELECT plan FROM subscriptions WHERE user_id=$1 AND status='active' AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY updated_at DESC NULLS LAST LIMIT 1`, [planUser]).catch(() => null);
   const plan = sub?.plan || 'free';
   // Included free consultations (only when online payments are on: otherwise every booking is already free).
   const credit = paymentsEnabled() ? await planCredit(userId, plan, consultType, s) : { allowed: 0, used: 0 };
@@ -82,10 +86,13 @@ export async function planCredit(userId: string, plan: string, consultType: stri
   s = s || await getSettings();
   const allowed = Number((s as any)[`${plan}_${consultType}_credits`] || 0);
   if (!allowed) return { allowed: 0, used: 0 };
+  // Free consultations are shared across the family on one plan.
+  const { ownerOf, familyUserIds } = await import('../family/family.service');
+  const ids = await familyUserIds(await ownerOf(userId));
   const sql = `SELECT COUNT(*)::int AS n FROM appointments a JOIN patients p ON p.id=a.patient_id
-               WHERE p.user_id=$1 AND a.plan_credit AND a.consult_type=$2 AND a.status NOT IN ('cancelled')
+               WHERE p.user_id = ANY($1::uuid[]) AND a.plan_credit AND a.consult_type=$2 AND a.status NOT IN ('cancelled')
                  AND date_trunc('month', a.created_at AT TIME ZONE 'Asia/Kolkata') = date_trunc('month', NOW() AT TIME ZONE 'Asia/Kolkata')`;
-  const r = client ? (await client.query(sql, [userId, consultType])).rows[0] : await queryOne<{ n: number }>(sql, [userId, consultType]);
+  const r = client ? (await client.query(sql, [ids, consultType])).rows[0] : await queryOne<{ n: number }>(sql, [ids, consultType]);
   return { allowed, used: Number(r?.n || 0) };
 }
 
@@ -94,7 +101,7 @@ export async function planCredit(userId: string, plan: string, consultType: stri
 export async function checkoutFor(appointmentId: string, userId: string) {
   const a = await queryOne<any>(
     `SELECT a.id, a.status, a.amount_paise, a.payment_status, a.hold_expires_at, a.payment_id,
-            pu.full_name, pu.email, pu.phone, du.full_name AS doctor_name
+            pu.full_name, ${patientEmailSql('pu')} AS email, pu.phone, du.full_name AS doctor_name
      FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users pu ON pu.id=p.user_id
      JOIN doctors d ON d.id=a.doctor_id JOIN users du ON du.id=d.user_id
      WHERE a.id=$1 AND p.user_id=$2`, [appointmentId, userId]);
@@ -192,7 +199,7 @@ export async function markPaid(orderId: string, paymentId: string, amountPaise: 
 async function notifyBooked(appointmentId: string) {
   const a = await queryOne<any>(
     `SELECT a.id, a.is_instant, a.consult_type, a.appt_date, a.appt_time, a.instant_deadline, a.doctor_id,
-            pu.full_name AS patient_name, pu.email AS patient_email, du.full_name AS doctor_name, du.email AS doctor_email
+            pu.full_name AS patient_name, ${patientEmailSql('pu')} AS patient_email, du.full_name AS doctor_name, du.email AS doctor_email
      FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users pu ON pu.id=p.user_id
      JOIN doctors d ON d.id=a.doctor_id JOIN users du ON du.id=d.user_id WHERE a.id=$1`, [appointmentId]);
   if (!a) return;

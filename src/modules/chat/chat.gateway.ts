@@ -7,6 +7,20 @@ import { logger } from '../../utils/logger';
 
 let io: SocketServer;
 
+/* Video waiting room: patients who have opened their call screen before the doctor joined. */
+const waiting = new Map<string, { doctorId: string; patientName: string; since: number; sockets: Set<string> }>();
+export function waitingFor(doctorId: string) {
+  return [...waiting.entries()].filter(([, w]) => w.doctorId === doctorId && w.sockets.size)
+    .map(([appointmentId, w]) => ({ appointmentId, patientName: w.patientName, since: new Date(w.since).toISOString() }));
+}
+function leaveWaiting(socket: any) {
+  const id = socket.waitingFor; if (!id) return;
+  const w = waiting.get(id); socket.waitingFor = null;
+  if (!w) return;
+  w.sockets.delete(socket.id);
+  if (!w.sockets.size) { waiting.delete(id); io?.to(`doctor:${w.doctorId}`).emit('patient_left_waiting', { appointmentId: id }); }
+}
+
 export function initSocketServer(httpServer: HttpServer) {
   io = new SocketServer(httpServer, {
     cors: {
@@ -28,7 +42,8 @@ export function initSocketServer(httpServer: HttpServer) {
                     (socket.handshake.headers.authorization as string)?.split(' ')[1];
       if (!token) return next(new Error('Authentication required'));
       const payload = verifyAccessToken(token);
-      (socket as any).user = payload;
+      const { resolveActAs } = await import('../family/family.service');
+      (socket as any).user = await resolveActAs(payload, socket.handshake.auth.actAs);
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -153,8 +168,31 @@ export function initSocketServer(httpServer: HttpServer) {
     });
 
     // Video room signaling
+    socket.on('waiting_room_join', async ({ appointmentId }: { appointmentId: string }) => {
+      try {
+        if (!/^[0-9a-f-]{36}$/i.test(String(appointmentId))) return;
+        const a = await queryOne<any>(
+          `SELECT a.id, a.doctor_id, a.status, p.user_id AS patient_user_id, u.full_name AS patient_name
+           FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN users u ON u.id=p.user_id WHERE a.id=$1`, [appointmentId]);
+        if (!a || a.patient_user_id !== user.sub) { socket.emit('waiting_room_error', { message: 'Access denied' }); return; }
+        leaveWaiting(socket);
+        socket.join(`wait:${a.id}`);
+        (socket as any).waitingFor = a.id;
+        const w = waiting.get(a.id) || { doctorId: a.doctor_id, patientName: a.patient_name, since: Date.now(), sockets: new Set<string>() };
+        w.sockets.add(socket.id); waiting.set(a.id, w);
+        io.to(`doctor:${a.doctor_id}`).emit('patient_waiting', { appointmentId: a.id, patientName: a.patient_name, since: new Date(w.since).toISOString() });
+        // Doctor already in the call?
+        const room = io.sockets.adapter.rooms.get(`video:${a.id}`);
+        const docIn = room && [...room].some(id => (io.sockets.sockets.get(id) as any)?.user?.role === 'doctor');
+        socket.emit('waiting_room_status', { appointmentId: a.id, doctorJoined: !!docIn, status: a.status });
+      } catch (err) { logger.error('waiting_room_join error', { error: (err as Error).message }); }
+    });
+
+    socket.on('waiting_room_leave', () => leaveWaiting(socket));
+
     socket.on('join_video_room', ({ roomId, sessionId, userId }: { roomId: string; sessionId: string; userId: string }) => {
       socket.join(`video:${roomId}`);
+      if (user.role === 'doctor') io.to(`wait:${roomId}`).emit('doctor_joined', { appointmentId: roomId });
       if (user.role === 'doctor' && /^[0-9a-f-]{36}$/i.test(String(roomId))) {
         query(`UPDATE appointments SET consultation_started_at=COALESCE(consultation_started_at, NOW()), first_response_at=COALESCE(first_response_at, NOW()) WHERE id=$1`, [roomId]).catch(() => {});
       }
@@ -182,6 +220,7 @@ export function initSocketServer(httpServer: HttpServer) {
     });
 
     socket.on('disconnect', () => {
+      leaveWaiting(socket);
       // Notify video room peers
       if ((socket as any).videoRoom) {
         socket.to(`video:${(socket as any).videoRoom}`).emit('peer_left_video', { userId: (socket as any).videoUserId });

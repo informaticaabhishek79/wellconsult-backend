@@ -302,7 +302,7 @@ SAFETY: you are not a doctor and don't replace one; say so briefly when giving g
 
 /* ── main loop ────────────────────────────────────────────────────────── */
 
-export async function runVeda(userId: string, role: string, rawMessages: any[]): Promise<AgentResult> {
+export async function runVeda(userId: string, role: string, rawMessages: any[], lang?: string): Promise<AgentResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     logger.error('Veda: ANTHROPIC_API_KEY is not set');
     throw new AppError(503, 'AI_UNAVAILABLE', 'Veda is not configured yet.');
@@ -325,7 +325,9 @@ export async function runVeda(userId: string, role: string, rawMessages: any[]):
   }
   if (!merged.length || merged[merged.length - 1].role !== 'user') throw new AppError(400, 'MISSING_FIELDS', 'A user message is required.');
 
-  const system = systemPrompt(ctx0.firstName, ctx0.history, canAct);
+  const system = systemPrompt(ctx0.firstName, ctx0.history, canAct) + (lang === 'hi'
+    ? '\n\nLANGUAGE: The app is set to Hindi. Reply in simple Hindi (Devanagari script) unless the patient writes in English; keep medicine names, doctor names and numbers as they are.'
+    : '');
   const cards: Card[] = []; const steps: string[] = [];
   let model = PRIMARY_MODEL;
   let convo = merged;

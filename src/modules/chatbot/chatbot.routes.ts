@@ -70,11 +70,11 @@ const agentLimiter = rateLimit({
 
 router.post('/agent', authenticate, agentLimiter, async (req, res, next) => {
   try {
-    const { messages } = req.body;
+    const { messages, lang } = req.body;
     if (!Array.isArray(messages) || messages.length === 0) {
       throw new AppError(400, 'MISSING_FIELDS', 'messages array required.');
     }
-    const result = await runVeda(req.user!.sub, req.user!.role, messages);
+    const result = await runVeda(req.user!.sub, req.user!.role, messages, lang === 'hi' ? 'hi' : 'en');
     sendSuccess(res, result);
   } catch (e) { next(e); }
 });
